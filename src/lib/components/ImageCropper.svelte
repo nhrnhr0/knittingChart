@@ -2,6 +2,7 @@
 	import { createEventDispatcher, onMount } from 'svelte';
 
 	export type Point = { x: number; y: number }; // normalized [0..1]
+	export type ColorLabel = { hex: string; char: string };
 
 	const props = $props<{
 		src: string;
@@ -13,6 +14,7 @@
 		cols?: number;
 		gridColor?: string;
 		gridThickness?: number;
+		colorLabels?: ColorLabel[];
 	}>();
 		let {
 			src,
@@ -23,7 +25,8 @@
 			rows = 0,
 			cols = 0,
 			gridColor = '#22c55e',
-			gridThickness = 2
+			gridThickness = 2,
+			colorLabels = []
 		} = props;
 	let rowsLocal = $state<number>(rows ?? 0);
 	let colsLocal = $state<number>(cols ?? 0);
@@ -40,6 +43,8 @@
 	let width = $state(0);
 	let height = $state(0);
 	let img: HTMLImageElement | null = null;
+	let imgCanvas: HTMLCanvasElement | null = null;
+	let imgCtx: CanvasRenderingContext2D | null = null;
 	let draggingIndex: number | null = null;
 
 	function setCanvasSize(w: number, h: number) {
@@ -70,6 +75,14 @@
 		const image = new Image();
 		image.onload = () => {
 			img = image;
+			imgCanvas = document.createElement('canvas');
+			imgCanvas.width = img.naturalWidth || 1;
+			imgCanvas.height = img.naturalHeight || 1;
+			imgCtx = imgCanvas.getContext('2d');
+			if (imgCtx) {
+				imgCtx.clearRect(0, 0, imgCanvas.width, imgCanvas.height);
+				imgCtx.drawImage(img, 0, 0);
+			}
 			updateSize();
 			// initialize default 4-corner points if none
 			const hasIncoming = (points && points.length > 0) || (pointsLocal && pointsLocal.length > 0);
@@ -99,6 +112,81 @@
 		const dx = ax - bx;
 		const dy = ay - by;
 		return Math.hypot(dx, dy);
+	}
+
+	function blend(u: number, v: number, p00: Point, p10: Point, p01: Point, p11: Point): Point {
+		// bilinear interpolation in normalized space
+		const x =
+			(1 - u) * (1 - v) * p00.x +
+			u * (1 - v) * p10.x +
+			(1 - u) * v * p01.x +
+			u * v * p11.x;
+		const y =
+			(1 - u) * (1 - v) * p00.y +
+			u * (1 - v) * p10.y +
+			(1 - u) * v * p01.y +
+			u * v * p11.y;
+		return { x, y };
+	}
+
+	function rgbToHex(r: number, g: number, b: number) {
+		const toHex = (n: number) => n.toString(16).padStart(2, '0');
+		return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+	}
+
+	function sampleAverage(x: number, y: number, size: number) {
+		if (!imgCtx || !imgCanvas) return null;
+		const half = Math.max(1, Math.floor(size / 2));
+		const sx = Math.min(Math.max(0, Math.round(x) - half), imgCanvas.width - 1);
+		const sy = Math.min(Math.max(0, Math.round(y) - half), imgCanvas.height - 1);
+		const w = Math.min(size, imgCanvas.width - sx);
+		const h = Math.min(size, imgCanvas.height - sy);
+		const data = imgCtx.getImageData(sx, sy, w, h).data;
+		let r = 0, g = 0, b = 0, count = 0;
+		for (let i = 0; i < data.length; i += 4) {
+			r += data[i];
+			g += data[i + 1];
+			b += data[i + 2];
+			count++;
+		}
+		if (count === 0) return null;
+		return {
+			r: Math.round(r / count),
+			g: Math.round(g / count),
+			b: Math.round(b / count)
+		};
+	}
+
+	export function getCellColors(opts: { rows: number; cols: number; sampleSize?: number }) {
+		const r = Math.max(0, Math.floor(opts.rows ?? 0));
+		const c = Math.max(0, Math.floor(opts.cols ?? 0));
+		const sampleSize = Math.max(1, Math.floor(opts.sampleSize ?? 3));
+		if (!img || !imgCtx || !imgCanvas) return [];
+		if (!pointsLocal || pointsLocal.length !== 4) return [];
+		if (r <= 0 || c <= 0) return [];
+		const p00 = pointsLocal[0];
+		const p10 = pointsLocal[1];
+		const p01 = pointsLocal[3];
+		const p11 = pointsLocal[2];
+		const colors: string[] = [];
+		for (let row = 0; row < r; row++) {
+			for (let col = 0; col < c; col++) {
+				const u0 = col / c;
+				const u1 = (col + 1) / c;
+				const v0 = row / r;
+				const v1 = (row + 1) / r;
+				const u = (u0 + u1) / 2;
+				const v = (v0 + v1) / 2;
+				const pt = blend(u, v, p00, p10, p01, p11);
+				const x = pt.x * imgCanvas.width;
+				const y = pt.y * imgCanvas.height;
+				const rgb = sampleAverage(x, y, sampleSize);
+				if (rgb) {
+					colors.push(rgbToHex(rgb.r, rgb.g, rgb.b));
+				}
+			}
+		}
+		return colors;
 	}
 
 	function draw() {
@@ -152,24 +240,57 @@
 
 			ctx.lineWidth = thickness;
 			ctx.strokeStyle = gridColorLocal;
-		}
 
-		// lines
+		// draw color labels on cells
+		if (colorLabels && colorLabels.length > 0 && r > 0 && c > 0) {
+			ctx.font = 'bold 14px Arial';
+			ctx.textAlign = 'center';
+			ctx.textBaseline = 'middle';
+			for (let row = 0; row < r; row++) {
+				for (let col = 0; col < c; col++) {
+					const cellIdx = row * c + col;
+					if (cellIdx >= colorLabels.length) break;
+					const label = colorLabels[cellIdx];
+					const u0 = col / c;
+					const u1 = (col + 1) / c;
+					const v0 = row / r;
+					const v1 = (row + 1) / r;
+					const u = (u0 + u1) / 2;
+					const v = (v0 + v1) / 2;
+					const pt = lerp(pts[0], pts[3], v);
+					const pt2 = lerp(pts[1], pts[2], v);
+					const centerPt = lerp(pt, pt2, u);
+					const cx = centerPt.x * width;
+					const cy = centerPt.y * height;
+					// Draw background circle for label
+					ctx.fillStyle = label.hex;
+					ctx.beginPath();
+					ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+					ctx.fill();
+					// Draw label text
+					ctx.fillStyle = label.textColor ?? '#ffffff';
+					ctx.fillText(label.char, cx, cy);
+				}
+			}
+		}
+	}
+
+	// quad outline
+	ctx.beginPath();
+	ctx.moveTo(pts[0].x * width, pts[0].y * height);
+	for (let i = 1; i < pts.length; i++) {
+		ctx.lineTo(pts[i].x * width, pts[i].y * height);
+	}
+	ctx.stroke();
+	if (pts.length === maxPoints) {
 		ctx.beginPath();
-		ctx.moveTo(pts[0].x * width, pts[0].y * height);
-		for (let i = 1; i < pts.length; i++) {
-			ctx.lineTo(pts[i].x * width, pts[i].y * height);
-		}
+		ctx.moveTo(pts[pts.length - 1].x * width, pts[pts.length - 1].y * height);
+		ctx.lineTo(pts[0].x * width, pts[0].y * height);
 		ctx.stroke();
-		if (pts.length === maxPoints) {
-			ctx.beginPath();
-			ctx.moveTo(pts[pts.length - 1].x * width, pts[pts.length - 1].y * height);
-			ctx.lineTo(pts[0].x * width, pts[0].y * height);
-			ctx.stroke();
-		}
+	}
 
-		// handles
-		for (let i = 0; i < pts.length; i++) {
+	// handles
+	for (let i = 0; i < pts.length; i++) {
 			const px = pts[i].x * width;
 			const py = pts[i].y * height;
 			ctx.beginPath();
@@ -255,6 +376,12 @@
 		gridThicknessLocal = Number.isFinite(props.gridThickness ?? 0)
 			? Number(props.gridThickness ?? 0)
 			: 2;
+		draw();
+	});
+
+	$effect(() => {
+		// redraw when color labels change
+		props.colorLabels;
 		draw();
 	});
 </script>

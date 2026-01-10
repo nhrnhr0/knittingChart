@@ -1,6 +1,12 @@
 import { writable } from 'svelte/store';
 import type { Writable } from 'svelte/store';
 
+export interface ColorEntry {
+	hex: string;
+	char: string;
+	textColor?: string; // color for the text label
+}
+
 export interface Project {
 	uuid: string;
 	name: string;
@@ -11,6 +17,7 @@ export interface Project {
 	cols?: number;
 	gridColor?: string;
 	gridThickness?: number;
+	colors?: ColorEntry[];
 }
 
 const STORAGE_KEY = 'projects';
@@ -28,6 +35,7 @@ function createProjectsStore(): Writable<Project[]> & {
 		gridColor?: string,
 		gridThickness?: number
 	) => void;
+	updateProjectColors: (uuid: string, colors: ColorEntry[]) => void;
 } {
 	// Load initial data from localStorage
 	let initialData: Project[] = [];
@@ -95,6 +103,11 @@ function createProjectsStore(): Writable<Project[]> & {
 						}
 						: p
 				)
+			);
+		},
+		updateProjectColors(uuid: string, colors: ColorEntry[]) {
+			update((projects) =>
+				projects.map((p) => (p.uuid === uuid ? { ...p, colors: [...colors] } : p))
 			);
 		}
 	};

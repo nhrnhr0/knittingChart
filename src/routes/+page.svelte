@@ -11,7 +11,8 @@
 			name: defaultName,
 			createdAt: Date.now(),
 			gridColor: '#22c55e',
-			gridThickness: 2
+			gridThickness: 2,
+			colors: []
 		};
 		projects.addProject(newProject);
 		goto(`/project/${uuid}`);
