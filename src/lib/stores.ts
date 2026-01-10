@@ -7,6 +7,20 @@ export interface ColorEntry {
 	textColor?: string; // color for the text label
 }
 
+export type StitchType = 'K' | 'P';
+export type Direction = 'LTR' | 'RTL';
+
+export interface WorkingState {
+	isActive: boolean;
+	currentRow: number; // 0-indexed working row (row 0 = first row you work)
+	currentCol: number; // 0-indexed column
+	startFromBottom: boolean; // true = start from bottom of grid
+	startStitch: StitchType; // which stitch type for first row
+	knitDirection: Direction; // direction for knit rows
+	perlDirection: Direction; // direction for perl rows
+	highlightColor: string; // color for row/col highlight overlay
+}
+
 export interface Project {
 	uuid: string;
 	name: string;
@@ -18,6 +32,7 @@ export interface Project {
 	gridColor?: string;
 	gridThickness?: number;
 	colors?: ColorEntry[];
+	workingState?: WorkingState;
 }
 
 const STORAGE_KEY = 'projects';
@@ -28,6 +43,7 @@ function createProjectsStore(): Writable<Project[]> & {
 	updateProject: (uuid: string, name: string) => void;
 	updateProjectImage: (uuid: string, image: string | undefined) => void;
 	updateProjectCrop: (uuid: string, points: { x: number; y: number }[] | undefined) => void;
+	updateProjectWorkingState: (uuid: string, workingState: Partial<WorkingState>) => void;
 	updateProjectGrid: (
 		uuid: string,
 		rows: number,
@@ -108,6 +124,29 @@ function createProjectsStore(): Writable<Project[]> & {
 		updateProjectColors(uuid: string, colors: ColorEntry[]) {
 			update((projects) =>
 				projects.map((p) => (p.uuid === uuid ? { ...p, colors: [...colors] } : p))
+			);
+		},
+		updateProjectWorkingState(uuid: string, workingState: Partial<WorkingState>) {
+			update((projects) =>
+				projects.map((p) =>
+					p.uuid === uuid
+						? {
+							...p,
+							workingState: {
+								isActive: false,
+								currentRow: 0,
+								currentCol: 0,
+								startFromBottom: true,
+								startStitch: 'K' as StitchType,
+								knitDirection: 'RTL' as Direction,
+								perlDirection: 'LTR' as Direction,
+								highlightColor: 'rgba(34, 197, 94, 0.4)',
+								...p.workingState,
+								...workingState
+							}
+						}
+						: p
+				)
 			);
 		}
 	};

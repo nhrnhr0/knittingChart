@@ -207,3 +207,117 @@ export function drawHandles(config: DrawConfig): void {
 		ctx.lineWidth = gridThickness;
 	}
 }
+
+export interface HighlightConfig {
+	ctx: CanvasRenderingContext2D;
+	width: number;
+	height: number;
+	points: Point[];
+	rows: number;
+	cols: number;
+	highlightRow?: number; // grid row index to highlight
+	highlightCol?: number; // grid col index to highlight
+	highlightColor?: string; // color for highlight overlay
+	direction?: 'LTR' | 'RTL'; // direction arrow indicator
+}
+
+/**
+ * Draw highlight overlay on specified row and/or column
+ * Also draws direction arrow on the highlighted row
+ */
+export function drawHighlight(config: HighlightConfig): void {
+	const { ctx, width, height, points, rows, cols, highlightRow, highlightCol, highlightColor = 'rgba(59, 130, 246, 0.3)', direction } = config;
+
+	if (points.length !== 4) return;
+	if (highlightRow === undefined && highlightCol === undefined) return;
+
+	const r = Math.max(0, Math.floor(rows));
+	const c = Math.max(0, Math.floor(cols));
+	if (r <= 0 || c <= 0) return;
+
+	const p00 = points[0];
+	const p10 = points[1];
+	const p01 = points[3];
+	const p11 = points[2];
+
+	ctx.save();
+	ctx.fillStyle = highlightColor;
+
+	// Draw row highlight
+	if (highlightRow !== undefined && highlightRow >= 0 && highlightRow < r) {
+		const v0 = highlightRow / r;
+		const v1 = (highlightRow + 1) / r;
+
+		// Get the four corners of the row band
+		const topLeft = blend(0, v0, p00, p10, p01, p11);
+		const topRight = blend(1, v0, p00, p10, p01, p11);
+		const bottomLeft = blend(0, v1, p00, p10, p01, p11);
+		const bottomRight = blend(1, v1, p00, p10, p01, p11);
+
+		ctx.beginPath();
+		ctx.moveTo(topLeft.x * width, topLeft.y * height);
+		ctx.lineTo(topRight.x * width, topRight.y * height);
+		ctx.lineTo(bottomRight.x * width, bottomRight.y * height);
+		ctx.lineTo(bottomLeft.x * width, bottomLeft.y * height);
+		ctx.closePath();
+		ctx.fill();
+
+		// Draw direction arrow
+		if (direction) {
+			const centerY = (topLeft.y + bottomLeft.y) / 2 * height;
+			const leftX = topLeft.x * width;
+			const rightX = topRight.x * width;
+			const arrowSize = Math.min(20, (rightX - leftX) * 0.1);
+			const padding = 10;
+
+			ctx.fillStyle = 'rgba(59, 130, 246, 0.9)';
+			ctx.strokeStyle = '#ffffff';
+			ctx.lineWidth = 2;
+
+			if (direction === 'LTR') {
+				// Arrow pointing right on the left side
+				const arrowX = leftX + padding;
+				ctx.beginPath();
+				ctx.moveTo(arrowX, centerY - arrowSize / 2);
+				ctx.lineTo(arrowX + arrowSize, centerY);
+				ctx.lineTo(arrowX, centerY + arrowSize / 2);
+				ctx.closePath();
+				ctx.fill();
+				ctx.stroke();
+			} else {
+				// Arrow pointing left on the right side
+				const arrowX = rightX - padding;
+				ctx.beginPath();
+				ctx.moveTo(arrowX, centerY - arrowSize / 2);
+				ctx.lineTo(arrowX - arrowSize, centerY);
+				ctx.lineTo(arrowX, centerY + arrowSize / 2);
+				ctx.closePath();
+				ctx.fill();
+				ctx.stroke();
+			}
+		}
+	}
+
+	// Draw column highlight (with different opacity to show intersection)
+	if (highlightCol !== undefined && highlightCol >= 0 && highlightCol < c) {
+		ctx.fillStyle = highlightColor;
+		const u0 = highlightCol / c;
+		const u1 = (highlightCol + 1) / c;
+
+		// Get the four corners of the column band
+		const topLeft = blend(u0, 0, p00, p10, p01, p11);
+		const topRight = blend(u1, 0, p00, p10, p01, p11);
+		const bottomLeft = blend(u0, 1, p00, p10, p01, p11);
+		const bottomRight = blend(u1, 1, p00, p10, p01, p11);
+
+		ctx.beginPath();
+		ctx.moveTo(topLeft.x * width, topLeft.y * height);
+		ctx.lineTo(topRight.x * width, topRight.y * height);
+		ctx.lineTo(bottomRight.x * width, bottomRight.y * height);
+		ctx.lineTo(bottomLeft.x * width, bottomLeft.y * height);
+		ctx.closePath();
+		ctx.fill();
+	}
+
+	ctx.restore();
+}

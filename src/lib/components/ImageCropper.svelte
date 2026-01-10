@@ -6,7 +6,8 @@
 		drawGrid,
 		drawColorLabels,
 		drawQuadOutline,
-		drawHandles
+		drawHandles,
+		drawHighlight
 	} from '$lib/utils/canvasDrawing';
 
 	export type { Point } from '$lib/utils/geometryUtils';
@@ -26,6 +27,10 @@
 		gridColor?: string;
 		gridThickness?: number;
 		colorLabels?: ColorLabel[];
+		highlightRow?: number;
+		highlightCol?: number;
+		highlightDirection?: 'LTR' | 'RTL';
+		highlightColor?: string;
 	}>();
 
 	let {
@@ -157,6 +162,19 @@
 		};
 
 		if (pts.length === 4) {
+			// Draw highlight first (behind grid)
+			drawHighlight({
+				ctx,
+				width,
+				height,
+				points: pts,
+				rows: rowsLocal,
+				cols: colsLocal,
+				highlightRow: props.highlightRow,
+				highlightCol: props.highlightCol,
+				direction: props.highlightDirection,
+				highlightColor: props.highlightColor
+			});
 			drawGrid(config);
 			drawColorLabels(config);
 		}
@@ -239,6 +257,14 @@
 
 	$effect(() => {
 		props.colorLabels;
+		draw();
+	});
+
+	$effect(() => {
+		props.highlightRow;
+		props.highlightCol;
+		props.highlightDirection;
+		props.highlightColor;
 		draw();
 	});
 </script>
