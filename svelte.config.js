@@ -8,7 +8,15 @@ const config = {
 	preprocess: vitePreprocess(),
 
 	kit: {
-		adapter: adapter({ strict: false })
+		adapter: adapter({
+			fallback: '404.html',
+			pages: 'build',
+			assets: 'build',
+			strict: false
+		}),
+		paths: {
+			base: process.argv.includes('dev') ? '' : process.env.BASE_PATH || ''
+		}
 	}
 };
 
