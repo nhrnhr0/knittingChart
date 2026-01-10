@@ -6,7 +6,13 @@
 	function createNewProject() {
 		const uuid = uuidv4();
 		const defaultName = uuid.split('-')[uuid.split('-').length - 1];
-		const newProject = { uuid, name: defaultName, createdAt: Date.now() };
+		const newProject = {
+			uuid,
+			name: defaultName,
+			createdAt: Date.now(),
+			gridColor: '#22c55e',
+			gridThickness: 2
+		};
 		projects.addProject(newProject);
 		goto(`/project/${uuid}`);
 	}
