@@ -205,11 +205,12 @@ export function drawHandles(config: DrawConfig): void {
 	for (let i = 0; i < points.length; i++) {
 		const px = points[i].x * width;
 		const py = points[i].y * height;
+		// Larger handle radius for better touch targets (22px visible, 44px detection)
 		ctx.beginPath();
-		ctx.arc(px, py, 6, 0, Math.PI * 2);
+		ctx.arc(px, py, 12, 0, Math.PI * 2);
 		ctx.fill();
 		ctx.strokeStyle = '#ffffff';
-		ctx.lineWidth = 2;
+		ctx.lineWidth = 3;
 		ctx.stroke();
 		ctx.strokeStyle = gridColor;
 		ctx.lineWidth = gridThickness;

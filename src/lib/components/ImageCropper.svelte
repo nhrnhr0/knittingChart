@@ -54,9 +54,18 @@
 	let gridThicknessLocal = $state<number>(gridThickness ?? 2);
 	let pointsLocal = $state<Point[] | undefined>(undefined);
 
+	// Zoom and pan state for mobile
+	let zoomLevel = $state(1);
+	let panX = $state(0);
+	let panY = $state(0);
+	const MIN_ZOOM = 0.5;
+	const MAX_ZOOM = 4;
+	let lastDistance = 0; // For pinch gesture tracking
+
 	const dispatch = createEventDispatcher<{
 		change: { points: Point[] | undefined };
 		cellClick: { row: number; col: number; cellIndex: number };
+		viewportChange?: { zoom: number; panX: number; panY: number };
 	}>();
 
 	let container: HTMLDivElement;
@@ -72,6 +81,12 @@
 	let brushSize = $state(props.brushSize ?? 1);
 	let isPainting = $state(false);
 	let paintedThisStroke = $state<Set<number>>(new Set());
+	let isPanning = $state(false);
+	let panStartX = $state(0);
+	let panStartY = $state(0);
+	let panStartPanX = $state(0);
+	let panStartPanY = $state(0);
+	let isSpacePressed = $state(false);
 
 	function setCanvasSize(w: number, h: number) {
 		const dpr = window.devicePixelRatio || 1;
@@ -150,10 +165,21 @@
 	function draw() {
 		if (!ctx || !img) return;
 		ctx.clearRect(0, 0, width, height);
+		
+		// Apply zoom and pan transformations
+		ctx.save();
+		ctx.translate(width / 2, height / 2);
+		ctx.scale(zoomLevel, zoomLevel);
+		ctx.translate(panX * width / zoomLevel, panY * height / zoomLevel);
+		ctx.translate(-width / 2, -height / 2);
+		
 		ctx.drawImage(img, 0, 0, width, height);
 
 		const pts = pointsLocal ?? [];
-		if (!showOverlay || pts.length === 0) return;
+		if (!showOverlay || pts.length === 0) {
+			ctx.restore();
+			return;
+		}
 
 		const thickness = Math.max(0.5, gridThicknessLocal || 0);
 		const config = {
@@ -197,6 +223,8 @@
 		if (props.correctionModeActive && mousePos && props.brushSize) {
 			drawBrushPreview(ctx, mousePos.x, mousePos.y, props.brushSize);
 		}
+		
+		ctx.restore();
 	}
 
 	function drawBrushPreview(ctx: CanvasRenderingContext2D, x: number, y: number, brushSize: number) {
@@ -246,6 +274,99 @@
 		pointsLocal = current;
 		dispatch('change', { points: current });
 		draw();
+	}
+
+	function getDistance(touches: TouchList): number {
+		if (touches.length < 2) return 0;
+		const dx = touches[0].clientX - touches[1].clientX;
+		const dy = touches[0].clientY - touches[1].clientY;
+		return Math.sqrt(dx * dx + dy * dy);
+	}
+
+	function getPinchCenter(touches: TouchList): { x: number; y: number } {
+		const x = (touches[0].clientX + touches[1].clientX) / 2;
+		const y = (touches[0].clientY + touches[1].clientY) / 2;
+		return { x, y };
+	}
+
+	function handleTouchStart(e: TouchEvent) {
+		if (e.touches.length === 2 && !editable) {
+			// Only allow pinch zoom when not in edit mode (crop mode)
+			lastDistance = getDistance(e.touches);
+		}
+	}
+
+	function handleTouchMove(e: TouchEvent) {
+		if (e.touches.length === 2 && lastDistance > 0 && !editable) {
+			e.preventDefault();
+			const currentDistance = getDistance(e.touches);
+			const scale = currentDistance / lastDistance;
+			const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel * scale));
+			
+			const center = getPinchCenter(e.touches);
+			const rect = canvas.getBoundingClientRect();
+			const centerX = (center.x - rect.left) / rect.width;
+			const centerY = (center.y - rect.top) / rect.height;
+			
+			// Adjust pan to keep pinch center stable
+			if (newZoom !== zoomLevel) {
+				const zoomDiff = newZoom - zoomLevel;
+				panX -= (centerX - 0.5) * zoomDiff / zoomLevel;
+				panY -= (centerY - 0.5) * zoomDiff / zoomLevel;
+				zoomLevel = newZoom;
+				draw();
+			}
+			lastDistance = currentDistance;
+		}
+	}
+
+	function handleTouchEnd(e: TouchEvent) {
+		if (e.touches.length < 2) {
+			lastDistance = 0;
+		}
+	}
+
+	function handleWheel(e: WheelEvent) {
+		if (!editable && Math.abs(e.deltaY) > 0) {
+			e.preventDefault();
+			const delta = e.deltaY > 0 ? 0.9 : 1.1;
+			const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel * delta));
+			
+			if (newZoom !== zoomLevel) {
+				const rect = canvas.getBoundingClientRect();
+				const x = (e.clientX - rect.left) / rect.width;
+				const y = (e.clientY - rect.top) / rect.height;
+				
+				// Zoom towards cursor position
+				panX -= (x - 0.5) * (newZoom - zoomLevel) / zoomLevel;
+				panY -= (y - 0.5) * (newZoom - zoomLevel) / zoomLevel;
+				
+				zoomLevel = newZoom;
+				draw();
+				dispatch('viewportChange', { zoom: zoomLevel, panX, panY });
+			}
+		}
+	}
+
+	function resetZoom() {
+		zoomLevel = 1;
+		panX = 0;
+		panY = 0;
+		draw();
+		dispatch('viewportChange', { zoom: zoomLevel, panX, panY });
+	}
+
+	function handleKeyDown(e: KeyboardEvent) {
+		if (e.code === 'Space') {
+			isSpacePressed = true;
+			e.preventDefault();
+		}
+	}
+
+	function handleKeyUp(e: KeyboardEvent) {
+		if (e.code === 'Space') {
+			isSpacePressed = false;
+		}
 	}
 
 	function getAffectedCells(row: number, col: number, brushSize: number, totalRows: number, totalCols: number): number[] {
@@ -328,11 +449,23 @@
 			return;
 		}
 
-		// Otherwise, allow dragging crop points
+		// Check if user is trying to pan (spacebar + drag or middle mouse button when zoomed)
+		if ((isSpacePressed || e.button === 1) && zoomLevel > MIN_ZOOM) {
+			isPanning = true;
+			panStartX = e.clientX;
+			panStartY = e.clientY;
+			panStartPanX = panX;
+			panStartPanY = panY;
+			(canvas as HTMLElement).setPointerCapture(e.pointerId);
+			return;
+		}
+
+		// Otherwise, allow dragging crop points - use 44px touch target
+		const touchRadius = 44;
 		for (let i = 0; i < pts.length; i++) {
 			const px = pts[i].x * width;
 			const py = pts[i].y * height;
-			if (distancePx(px, py, cx, cy) <= 10) {
+			if (distancePx(px, py, cx, cy) <= touchRadius) {
 				draggingIndex = i;
 				(canvas as HTMLElement).setPointerCapture(e.pointerId);
 				break;
@@ -354,6 +487,16 @@
 			return;
 		}
 
+		// If panning, update pan position
+		if (isPanning && zoomLevel > MIN_ZOOM) {
+			const deltaX = (e.clientX - panStartX) / rect.width;
+			const deltaY = (e.clientY - panStartY) / rect.height;
+			panX = panStartPanX + deltaX;
+			panY = panStartPanY + deltaY;
+			draw();
+			return;
+		}
+
 		if (draggingIndex === null) return;
 		const rel = toRelative(e.clientX, e.clientY);
 		const current = pointsLocal ? [...pointsLocal] : [];
@@ -365,8 +508,9 @@
 
 	function onPointerUp(e: PointerEvent) {
 		(canvas as HTMLElement).releasePointerCapture(e.pointerId);
-		// End painting or dragging
+		// End painting or dragging or panning
 		isPainting = false;
+		isPanning = false;
 		paintedThisStroke.clear();
 		if (draggingIndex !== null) {
 			draggingIndex = null;
@@ -392,7 +536,16 @@
 		loadImage(props.src);
 		const ro = new ResizeObserver(() => updateSize());
 		ro.observe(container);
-		return () => ro.disconnect();
+		
+		// Add keyboard listeners for spacebar pan
+		window.addEventListener('keydown', handleKeyDown);
+		window.addEventListener('keyup', handleKeyUp);
+		
+		return () => {
+			ro.disconnect();
+			window.removeEventListener('keydown', handleKeyDown);
+			window.removeEventListener('keyup', handleKeyUp);
+		};
 	});
 
 	$effect(() => {
@@ -442,6 +595,21 @@
 		onpointermove={onPointerMove}
 		onpointerup={onPointerUp}
 		onpointerleave={() => { mousePos = null; draggingIndex = null; isPainting = false; paintedThisStroke.clear(); }}
-		class="block w-full"
+		ontouchstart={handleTouchStart}
+		ontouchmove={handleTouchMove}
+		ontouchend={handleTouchEnd}
+		onwheel={handleWheel}
+		class="block w-full cursor-grab active:cursor-grabbing"
+		style="touch-action: none;"
 	></canvas>
+	{#if zoomLevel > MIN_ZOOM && !editable}
+		<button
+			onclick={resetZoom}
+			class="absolute bottom-2 left-2 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs z-10"
+			aria-label="Reset zoom"
+			title="Hold Space + Drag to pan, Scroll to zoom"
+		>
+			↺ Reset
+		</button>
+	{/if}
 </div>

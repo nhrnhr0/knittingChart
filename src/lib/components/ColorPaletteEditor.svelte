@@ -41,10 +41,10 @@
 </script>
 
 <div class="mb-6 mt-6">
-	<div class="flex items-center justify-between mb-2">
+	<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-2 gap-2 sm:gap-3">
 		<p class="text-sm font-semibold text-gray-800">Colors</p>
-		<div class="flex items-center gap-3">
-			<label class="text-xs text-gray-600 flex items-center gap-2">
+		<div class="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-3">
+			<label class="text-xs text-gray-600 flex items-center gap-2 flex-wrap">
 				<span>Threshold</span>
 				<input
 					type="number"
@@ -53,12 +53,12 @@
 					step="1"
 					value={colorThreshold}
 					onchange={(e) => onThresholdChange(Number(e.currentTarget.value))}
-					class="w-20 px-2 py-1 border border-gray-300 rounded"
+					class="w-16 sm:w-20 px-2 py-1 border border-gray-300 rounded text-sm"
 				/>
 			</label>
 			<button
 				onclick={onAutoAdd}
-				class="bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-semibold px-3 py-2 rounded"
+				class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded whitespace-nowrap"
 			>
 				Auto-add colors
 			</button>
@@ -66,19 +66,19 @@
 	</div>
 
 	<div class="space-y-3">
-		<div class="flex gap-2 items-end">
+		<div class="flex flex-col sm:flex-row gap-2 items-stretch sm:items-end">
 			<div class="flex-1">
 				<label for="new-color" class="block text-xs text-gray-600 mb-1">New color</label>
 				<input
 					id="new-color"
 					type="color"
-					class="w-full h-10 px-2 py-1 border border-gray-300 rounded-lg cursor-pointer"
+					class="w-full h-10 sm:h-10 px-2 py-1 border border-gray-300 rounded-lg cursor-pointer"
 					bind:value={newColorHex}
 				/>
 			</div>
 			<button
 				onclick={addColor}
-				class="bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold px-4 py-2 rounded"
+				class="bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold px-3 sm:px-4 py-2 rounded whitespace-nowrap"
 			>
 				Add
 			</button>
@@ -87,10 +87,11 @@
 		{#if colors.length === 0}
 			<p class="text-sm text-gray-600">No colors yet.</p>
 		{:else}
-			<div class="space-y-2">
+			<div class="space-y-2 overflow-x-auto">
 				{#each colors as c, idx}
-					<div class="flex items-center gap-3 bg-gray-50 p-3 rounded border border-gray-200">
-						<div class="flex flex-col items-center gap-1">
+					<div class="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 bg-gray-50 p-2 sm:p-3 rounded border border-gray-200 min-w-full sm:min-w-0">
+						<!-- Char Input -->
+						<div class="flex flex-col items-start sm:items-center gap-1 min-w-[80px]">
 							<span class="text-xs font-semibold text-gray-600">Char</span>
 							<input
 								type="text"
@@ -100,7 +101,8 @@
 								class="w-12 h-8 text-center border border-gray-300 rounded font-semibold text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 							/>
 						</div>
-						<div class="flex flex-col items-center gap-1">
+						<!-- BG Color Picker -->
+						<div class="flex flex-col items-start sm:items-center gap-1 min-w-[80px]">
 							<span class="text-xs font-semibold text-gray-600">BG Color</span>
 							<input
 								type="color"
@@ -115,7 +117,8 @@
 								title="Background color"
 							/>
 						</div>
-						<div class="flex flex-col items-center gap-1">
+						<!-- Text Color Picker -->
+						<div class="flex flex-col items-start sm:items-center gap-1 min-w-[80px]">
 							<span class="text-xs font-semibold text-gray-600">Text Color</span>
 							<input
 								type="color"
@@ -128,7 +131,8 @@
 								title="Text color"
 							/>
 						</div>
-						<div class="flex flex-col gap-1 flex-1">
+						<!-- Hex Input -->
+						<div class="flex flex-col gap-1 flex-1 min-w-[120px]">
 							<span class="text-xs font-semibold text-gray-600">Hex</span>
 							<input
 								type="text"
@@ -139,13 +143,14 @@
 										updateColor(idx, { hex: newColor, textColor: getContrastTextColor(newColor) });
 									}
 								}}
-								class="px-3 py-2 border border-gray-300 rounded font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+								class="px-2 sm:px-3 py-2 border border-gray-300 rounded font-mono text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
 								placeholder="#000000"
 							/>
 						</div>
+						<!-- Delete Button -->
 						<button
 							onclick={() => removeColor(c.hex)}
-							class="bg-red-600 hover:bg-red-700 text-white text-sm font-semibold px-3 py-2 rounded h-10 self-end"
+							class="bg-red-600 hover:bg-red-700 text-white text-xs sm:text-sm font-semibold px-2 sm:px-3 py-2 rounded h-10 sm:self-end whitespace-nowrap"
 						>
 							Delete
 						</button>

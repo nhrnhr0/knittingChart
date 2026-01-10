@@ -27,6 +27,12 @@ export interface WorkingState {
 	selectedLetter?: string; // currently selected letter for painting
 }
 
+export interface ViewportState {
+	zoomLevel: number; // 1.0 = 100%, 2.0 = 200%
+	panX: number; // normalized pan offset
+	panY: number; // normalized pan offset
+}
+
 export interface Project {
 	uuid: string;
 	name: string;
@@ -43,6 +49,7 @@ export interface Project {
 	correctionModeActive?: boolean; // true when in cell correction/painting mode
 	selectedLetter?: string; // currently selected letter for painting
 	brushSize?: number; // brush radius in cells (1-5)
+	viewportState?: ViewportState; // zoom and pan state
 	__undoStack?: Array<Record<number, string>>; // internal undo stack
 	__redoStack?: Array<Record<number, string>>; // internal redo stack
 }
@@ -71,6 +78,7 @@ function createProjectsStore(): Writable<Project[]> & {
 	toggleCorrectionMode: (uuid: string) => void;
 	setCorrectionLetter: (uuid: string, letter: string) => void;
 	setBrushSize: (uuid: string, size: number) => void;
+	updateViewportState: (uuid: string, viewportState: Partial<ViewportState>) => void;
 } {
 	// Load initial data from localStorage
 	let initialData: Project[] = [];
@@ -270,6 +278,24 @@ function createProjectsStore(): Writable<Project[]> & {
 				projects.map((p) =>
 					p.uuid === uuid
 						? { ...p, brushSize: Math.max(1, Math.min(5, size)) }
+						: p
+				)
+			);
+		},
+		updateViewportState(uuid: string, viewportState: Partial<ViewportState>) {
+			update((projects) =>
+				projects.map((p) =>
+					p.uuid === uuid
+						? {
+							...p,
+							viewportState: {
+								zoomLevel: 1,
+								panX: 0,
+								panY: 0,
+								...(p.viewportState || {}),
+								...viewportState
+							}
+						}
 						: p
 				)
 			);
