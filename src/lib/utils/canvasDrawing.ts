@@ -17,6 +17,7 @@ export interface DrawConfig {
 	maxPoints: number;
 	imgCtx?: CanvasRenderingContext2D | null;
 	imgCanvas?: HTMLCanvasElement | null;
+	correctedLetters?: Record<number, string>;
 }
 
 export function drawGrid(config: DrawConfig): void {
@@ -59,7 +60,7 @@ export function drawGrid(config: DrawConfig): void {
 }
 
 export function drawColorLabels(config: DrawConfig): void {
-	const { ctx, width, height, points, rows, cols, colorLabels, imgCtx, imgCanvas } = config;
+	const { ctx, width, height, points, rows, cols, colorLabels, imgCtx, imgCanvas, correctedLetters } = config;
 
 	if (!colorLabels || colorLabels.length === 0 || points.length !== 4) return;
 
@@ -85,6 +86,7 @@ export function drawColorLabels(config: DrawConfig): void {
 
 	for (let row = 0; row < r; row++) {
 		for (let col = 0; col < c; col++) {
+			const cellIndex = row * c + col;
 			const u = (col + 0.5) / c;
 			const v = (row + 0.5) / r;
 
@@ -93,10 +95,16 @@ export function drawColorLabels(config: DrawConfig): void {
 			const cx = cellCenter.x * width;
 			const cy = cellCenter.y * height;
 
-			// Find the closest color label based on actual cell color
+			// Find the label - check corrections first
 			let label: ColorLabel | null = null;
+			let isCorrected = false;
 
-			if (imgCtx && imgCanvas) {
+			if (correctedLetters && cellIndex in correctedLetters) {
+				// Use corrected letter
+				const correctedChar = correctedLetters[cellIndex];
+				label = colorLabels.find(l => l.char === correctedChar) ?? null;
+				isCorrected = true;
+			} else if (imgCtx && imgCanvas) {
 				// Sample the color from the image at this cell position
 				const imgX = cellCenter.x * imgCanvas.width;
 				const imgY = cellCenter.y * imgCanvas.height;
@@ -114,6 +122,17 @@ export function drawColorLabels(config: DrawConfig): void {
 			ctx.beginPath();
 			ctx.arc(cx, cy, circleRadius, 0, Math.PI * 2);
 			ctx.fill();
+
+			// If corrected, draw a dashed border
+			if (isCorrected) {
+				ctx.strokeStyle = '#2563eb';
+				ctx.lineWidth = 2;
+				ctx.setLineDash([4, 4]);
+				ctx.beginPath();
+				ctx.arc(cx, cy, circleRadius + 2, 0, Math.PI * 2);
+				ctx.stroke();
+				ctx.setLineDash([]);
+			}
 
 			// Draw label text
 			ctx.fillStyle = label.textColor ?? '#ffffff';

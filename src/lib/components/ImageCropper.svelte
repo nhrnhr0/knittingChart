@@ -31,6 +31,7 @@
 		highlightCol?: number;
 		highlightDirection?: 'LTR' | 'RTL';
 		highlightColor?: string;
+		correctedLetters?: Record<number, string>;
 	}>();
 
 	let {
@@ -51,7 +52,10 @@
 	let gridThicknessLocal = $state<number>(gridThickness ?? 2);
 	let pointsLocal = $state<Point[] | undefined>(undefined);
 
-	const dispatch = createEventDispatcher<{ change: { points: Point[] | undefined } }>();
+	const dispatch = createEventDispatcher<{
+		change: { points: Point[] | undefined };
+		cellClick: { row: number; col: number; cellIndex: number };
+	}>();
 
 	let container: HTMLDivElement;
 	let canvas: HTMLCanvasElement;
@@ -158,7 +162,8 @@
 			colorLabels: props.colorLabels ?? [],
 			maxPoints,
 			imgCtx,
-			imgCanvas
+			imgCanvas,
+			correctedLetters: props.correctedLetters
 		};
 
 		if (pts.length === 4) {
@@ -185,14 +190,76 @@
 
 	function handleCanvasClick(e: MouseEvent) {
 		e.stopPropagation();
+		const rel = toRelative(e.clientX, e.clientY);
+		
+		// Check if click is on a cell (if in correction mode)
+		if (editable && rowsLocal > 0 && colsLocal > 0 && pointsLocal && pointsLocal.length === 4) {
+			const cellInfo = getCellAtPoint(rel, pointsLocal);
+			if (cellInfo) {
+				dispatch('cellClick', cellInfo);
+				return;
+			}
+		}
+		
+		// Otherwise, add a new point
 		if (!editable) return;
 		const current = pointsLocal ? [...pointsLocal] : [];
 		if (current.length >= maxPoints) return;
-		const rel = toRelative(e.clientX, e.clientY);
 		current.push(rel);
 		pointsLocal = current;
 		dispatch('change', { points: current });
 		draw();
+	}
+
+	function getCellAtPoint(point: Point, quadPoints: Point[]) {
+		// Given a normalized point (0-1), determine which cell it's in
+		// Use inverse bilinear interpolation or ray casting
+		const { x, y } = point;
+		
+		// Simple approach: for each cell, check if point is inside
+		for (let row = 0; row < rowsLocal; row++) {
+			for (let col = 0; col < colsLocal; col++) {
+				const cellCorners = getCellCornerNormalized(row, col, quadPoints);
+				if (pointInQuad(point, cellCorners)) {
+					const cellIndex = row * colsLocal + col;
+					return { row, col, cellIndex };
+				}
+			}
+		}
+		return null;
+	}
+
+	function getCellCornerNormalized(row: number, col: number, quadPoints: Point[]): Point[] {
+		// Get normalized quad corners for a specific cell using bilinear interpolation
+		const normRow = row / rowsLocal;
+		const normCol = col / colsLocal;
+		const normRowNext = (row + 1) / rowsLocal;
+		const normColNext = (col + 1) / colsLocal;
+
+		// Quad points: [0]=TL, [1]=TR, [2]=BR, [3]=BL
+		// Bilinear interpolation: blend(u, v, p00, p10, p01, p11)
+		const tl = blend(normCol, normRow, quadPoints[0], quadPoints[1], quadPoints[3], quadPoints[2]);
+		const tr = blend(normColNext, normRow, quadPoints[0], quadPoints[1], quadPoints[3], quadPoints[2]);
+		const bl = blend(normCol, normRowNext, quadPoints[0], quadPoints[1], quadPoints[3], quadPoints[2]);
+		const br = blend(normColNext, normRowNext, quadPoints[0], quadPoints[1], quadPoints[3], quadPoints[2]);
+
+		return [tl, tr, br, bl];
+	}
+
+	function pointInQuad(point: Point, quad: Point[]): boolean {
+		// Simple point-in-quad test using cross product method
+		const [p0, p1, p2, p3] = quad;
+		const p = point;
+
+		const sign = (x: number) => x > 0 ? 1 : x < 0 ? -1 : 0;
+		const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+		const s0 = sign(cross(p0, p1, p));
+		const s1 = sign(cross(p1, p2, p));
+		const s2 = sign(cross(p2, p3, p));
+		const s3 = sign(cross(p3, p0, p));
+
+		return (s0 === s1 && s1 === s2 && s2 === s3) || (s0 === 0 || s1 === 0 || s2 === 0 || s3 === 0);
 	}
 
 	function onPointerDown(e: PointerEvent) {

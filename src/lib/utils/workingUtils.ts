@@ -68,13 +68,15 @@ export function getDisplayRowNumber(workingRow: number): number {
  * @param cols - number of columns
  * @param colorEntries - color palette with char mappings
  * @param direction - 'LTR' or 'RTL' determines reading order
+ * @param correctedLetters - optional map of cell index -> corrected letter override
  */
 export function getRowRLE(
 	cellColors: string[],
 	gridRow: number,
 	cols: number,
 	colorEntries: ColorEntry[],
-	direction: Direction
+	direction: Direction,
+	correctedLetters?: Record<number, string>
 ): string {
 	if (cols <= 0 || colorEntries.length === 0) return '';
 	
@@ -83,15 +85,22 @@ export function getRowRLE(
 	
 	if (rowStart >= cellColors.length) return '';
 	
-	// Get row colors and optionally reverse for RTL
-	let rowColors = cellColors.slice(rowStart, Math.min(rowEnd, cellColors.length));
+	// Get row colors and cell indices, optionally reverse for RTL
+	let rowIndices = Array.from({ length: Math.min(cols, cellColors.length - rowStart) }, (_, i) => rowStart + i);
+	let rowColors = rowIndices.map(idx => cellColors[idx]);
+	
 	if (direction === 'RTL') {
+		rowIndices = [...rowIndices].reverse();
 		rowColors = [...rowColors].reverse();
 	}
 	
-	// Find char for each cell color
-	const chars = rowColors.map(hex => {
-		const entry = findClosestColorEntry(hex, colorEntries);
+	// Find char for each cell color, checking corrections first
+	const chars = rowIndices.map((idx, position) => {
+		// Check if this cell has a correction
+		if (correctedLetters && idx in correctedLetters) {
+			return correctedLetters[idx];
+		}
+		const entry = findClosestColorEntry(rowColors[position], colorEntries);
 		return entry?.char ?? '?';
 	});
 	

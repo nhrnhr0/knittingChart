@@ -10,6 +10,7 @@
 	import ColorPaletteEditor from '$lib/components/ColorPaletteEditor.svelte';
 	import WorkingSettings from '$lib/components/WorkingSettings.svelte';
 	import WorkingPanel from '$lib/components/WorkingPanel.svelte';
+	import CorrectionMode from '$lib/components/CorrectionMode.svelte';
 	import { getContrastTextColor } from '$lib/utils/colorUtils';
 	import { getStitchType, getRowDirection, getGridRowFromWorking, getDisplayRowNumber, getRowRLE, getDefaultWorkingState } from '$lib/utils/workingUtils';
 
@@ -27,7 +28,7 @@
 	let currentDirection = $derived(getRowDirection(currentStitchType, workingState.knitDirection, workingState.perlDirection));
 	let currentGridRow = $derived(getGridRowFromWorking(workingState.currentRow, workingState.startFromBottom, rows));
 	let displayRowNumber = $derived(getDisplayRowNumber(workingState.currentRow));
-	let currentRowRLE = $derived(getRowRLE(cellColors, currentGridRow, cols, colors, currentDirection));
+	let currentRowRLE = $derived(getRowRLE(cellColors, currentGridRow, cols, colors, currentDirection, project?.correctedLetters));
 	let highlightGridCol = $derived(currentDirection === 'RTL' ? cols - 1 - workingState.currentCol : workingState.currentCol);
 	let isOddRow = $derived(displayRowNumber % 2 === 1);
 
@@ -82,6 +83,13 @@
 		if (project) projects.updateProjectCrop(project.uuid, e.detail.points);
 	}
 
+	function handleCellClick(e: CustomEvent<{ row: number; col: number; cellIndex: number }>) {
+		// Handle cell clicks when in correction mode
+		if (!project?.correctionModeActive || !project?.selectedLetter) return;
+		const { cellIndex } = e.detail;
+		projects.paintCell(project.uuid, cellIndex, project.selectedLetter);
+	}
+
 	function handleImageUpload(e: Event) {
 		if (!project) return;
 		const file = (e.target as HTMLInputElement).files?.[0];
@@ -119,12 +127,16 @@
 					rows={rows} cols={cols} gridColor={project.gridColor ?? '#22c55e'}
 					gridThickness={project.gridThickness ?? 2} colorLabels={colors}
 					highlightRow={workingState.isActive ? currentGridRow : undefined}
-					highlightCol={workingState.isActive ? highlightGridCol : undefined}
-					highlightDirection={workingState.isActive ? currentDirection : undefined}
-					highlightColor={workingState.highlightColor}
-					editable={!workingState.isActive} on:change={handleCropChange} />
+				highlightCol={workingState.isActive ? highlightGridCol : undefined}
+				highlightDirection={workingState.isActive ? currentDirection : undefined}
+				highlightColor={workingState.highlightColor}
+				correctedLetters={project?.correctedLetters}
+				editable={!workingState.isActive || project?.correctionModeActive}
+				on:change={handleCropChange}
+				on:cellClick={handleCellClick} />
 			{/if}
 			{#if !workingState.isActive}
+				<CorrectionMode {project} />
 				<div class="mb-6">
 					<label for="project-image" class="block text-sm font-medium text-gray-700 mb-2">Image</label>
 					<input id="project-image" type="file" accept="image/*" onchange={handleImageUpload} class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700" />
@@ -142,24 +154,27 @@
 			{/if}
 		</div>
 		{#if workingState.isActive}
-			<WorkingPanel {displayRowNumber} totalRows={rows} currentCol={workingState.currentCol + 1} {cols} startCol={workingState.startCol} {currentStitchType} {currentDirection} {currentRowRLE}
-				onIncrementRow={() => workingState.currentRow < rows - 1 && updateWorkingState({ currentRow: workingState.currentRow + 1, currentCol: 0 })}
-				onDecrementRow={() => workingState.currentRow > 0 && updateWorkingState({ currentRow: workingState.currentRow - 1, currentCol: 0 })}
-				onIncrementCol={() => {
-					const shouldReverse = isOddRow;
-					const newCol = shouldReverse
-						? (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1))
-						: (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0));
-					updateWorkingState({ currentCol: newCol });
-				}}
-				onDecrementCol={() => {
-					const shouldReverse = isOddRow;
-					const newCol = shouldReverse
-						? (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0))
-						: (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1));
-					updateWorkingState({ currentCol: newCol });
-				}}
-				onGoToFirst={() => updateWorkingState({ currentRow: 0, currentCol: 0 })} onGoToLast={() => updateWorkingState({ currentRow: rows - 1, currentCol: 0 })} />
+
+			<div class="container mx-auto px-6 max-w-2xl">
+				<WorkingPanel {displayRowNumber} totalRows={rows} currentCol={workingState.currentCol + 1} {cols} startCol={workingState.startCol} {currentStitchType} {currentDirection} {currentRowRLE}
+					onIncrementRow={() => workingState.currentRow < rows - 1 && updateWorkingState({ currentRow: workingState.currentRow + 1, currentCol: 0 })}
+					onDecrementRow={() => workingState.currentRow > 0 && updateWorkingState({ currentRow: workingState.currentRow - 1, currentCol: 0 })}
+					onIncrementCol={() => {
+						const shouldReverse = isOddRow;
+						const newCol = shouldReverse
+							? (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1))
+							: (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0));
+						updateWorkingState({ currentCol: newCol });
+					}}
+					onDecrementCol={() => {
+						const shouldReverse = isOddRow;
+						const newCol = shouldReverse
+							? (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0))
+							: (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1));
+						updateWorkingState({ currentCol: newCol });
+					}}
+					onGoToFirst={() => updateWorkingState({ currentRow: 0, currentCol: 0 })} onGoToLast={() => updateWorkingState({ currentRow: rows - 1, currentCol: 0 })} />
+			</div>
 		{/if}
 	</div>
 {:else}
