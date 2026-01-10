@@ -6,6 +6,7 @@
 		totalRows: number;
 		currentCol: number;
 		cols: number;
+		startCol: number;
 		currentStitchType: StitchType;
 		currentDirection: Direction;
 		currentRowRLE: string;
@@ -22,6 +23,7 @@
 		totalRows,
 		currentCol,
 		cols,
+		startCol,
 		currentStitchType,
 		currentDirection,
 		currentRowRLE,
@@ -73,7 +75,7 @@
 					−
 				</button>
 				<div class="text-center min-w-[100px]">
-					<div class="text-3xl font-bold text-blue-600">Col {currentCol}</div>
+					<div class="text-3xl font-bold text-blue-600">Col {currentCol + startCol}</div>
 					<div class="text-sm text-gray-500">of {cols}</div>
 				</div>
 				<button

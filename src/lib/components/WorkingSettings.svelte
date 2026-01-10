@@ -137,5 +137,17 @@
 				class="w-full h-10 px-2 py-1 border border-gray-300 rounded-lg cursor-pointer"
 			/>
 		</div>
+
+		<!-- Starting Column -->
+		<div>
+			<span class="block text-sm font-medium text-gray-700 mb-2">Starting Column (0-indexed)</span>
+			<input
+				type="number"
+				value={workingState.startCol ?? 0}
+				onchange={(e) => onUpdate({ startCol: Math.max(0, parseInt(e.currentTarget.value, 10)) })}
+				min="0"
+				class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+			/>
+		</div>
 	</div>
 </div>

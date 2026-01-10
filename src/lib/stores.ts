@@ -19,6 +19,7 @@ export interface WorkingState {
 	knitDirection: Direction; // direction for knit rows
 	perlDirection: Direction; // direction for perl rows
 	highlightColor: string; // color for row/col highlight overlay
+	startCol: number; // 0-indexed starting column
 }
 
 export interface Project {
@@ -141,6 +142,7 @@ function createProjectsStore(): Writable<Project[]> & {
 								knitDirection: 'RTL' as Direction,
 								perlDirection: 'LTR' as Direction,
 								highlightColor: 'rgba(34, 197, 94, 0.4)',
+								startCol: 0,
 								...p.workingState,
 								...workingState
 							}

@@ -28,6 +28,8 @@
 	let currentGridRow = $derived(getGridRowFromWorking(workingState.currentRow, workingState.startFromBottom, rows));
 	let displayRowNumber = $derived(getDisplayRowNumber(workingState.currentRow));
 	let currentRowRLE = $derived(getRowRLE(cellColors, currentGridRow, cols, colors, currentDirection));
+	let highlightGridCol = $derived(currentDirection === 'RTL' ? cols - 1 - workingState.currentCol : workingState.currentCol);
+	let isOddRow = $derived(displayRowNumber % 2 === 1);
 
 	async function updateCellColors() {
 		if (!cropper || rows <= 0 || cols <= 0) { cellColors = []; return; }
@@ -117,7 +119,7 @@
 					rows={rows} cols={cols} gridColor={project.gridColor ?? '#22c55e'}
 					gridThickness={project.gridThickness ?? 2} colorLabels={colors}
 					highlightRow={workingState.isActive ? currentGridRow : undefined}
-					highlightCol={workingState.isActive ? workingState.currentCol : undefined}
+					highlightCol={workingState.isActive ? highlightGridCol : undefined}
 					highlightDirection={workingState.isActive ? currentDirection : undefined}
 					highlightColor={workingState.highlightColor}
 					editable={!workingState.isActive} on:change={handleCropChange} />
@@ -140,19 +142,21 @@
 			{/if}
 		</div>
 		{#if workingState.isActive}
-			<WorkingPanel {displayRowNumber} totalRows={rows} currentCol={workingState.currentCol + 1} {cols} {currentStitchType} {currentDirection} {currentRowRLE}
+			<WorkingPanel {displayRowNumber} totalRows={rows} currentCol={workingState.currentCol + 1} {cols} startCol={workingState.startCol} {currentStitchType} {currentDirection} {currentRowRLE}
 				onIncrementRow={() => workingState.currentRow < rows - 1 && updateWorkingState({ currentRow: workingState.currentRow + 1, currentCol: 0 })}
 				onDecrementRow={() => workingState.currentRow > 0 && updateWorkingState({ currentRow: workingState.currentRow - 1, currentCol: 0 })}
 				onIncrementCol={() => {
-					const newCol = currentDirection === 'LTR' 
-						? Math.min(workingState.currentCol + 1, cols - 1)
-						: Math.max(workingState.currentCol - 1, 0);
+					const shouldReverse = isOddRow;
+					const newCol = shouldReverse
+						? (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1))
+						: (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0));
 					updateWorkingState({ currentCol: newCol });
 				}}
 				onDecrementCol={() => {
-					const newCol = currentDirection === 'LTR'
-						? Math.max(workingState.currentCol - 1, 0)
-						: Math.min(workingState.currentCol + 1, cols - 1);
+					const shouldReverse = isOddRow;
+					const newCol = shouldReverse
+						? (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0))
+						: (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1));
 					updateWorkingState({ currentCol: newCol });
 				}}
 				onGoToFirst={() => updateWorkingState({ currentRow: 0, currentCol: 0 })} onGoToLast={() => updateWorkingState({ currentRow: rows - 1, currentCol: 0 })} />

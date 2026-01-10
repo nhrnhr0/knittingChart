@@ -176,6 +176,7 @@ export function getDefaultWorkingState() {
 		startStitch: 'K' as StitchType,
 		knitDirection: 'RTL' as Direction,
 		perlDirection: 'LTR' as Direction,
-		highlightColor: 'rgba(34, 197, 94, 0.4)'
+		highlightColor: 'rgba(34, 197, 94, 0.4)',
+		startCol: 0
 	};
 }
