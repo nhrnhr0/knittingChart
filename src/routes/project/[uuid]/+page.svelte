@@ -5,6 +5,7 @@
 	import type { Project, ColorEntry } from '$lib/stores';
 	import type { Point } from '$lib';
 	import ImageCropper from '$lib/components/ImageCropper.svelte';
+	import { getContrastTextColor } from '$lib/utils/colorUtils';
 
 	let project: Project | undefined;
 	let projectName: string = '';
@@ -13,7 +14,7 @@
 	let gridColor: string = '#22c55e';
 	let gridThickness: number = 2;
 	let colors: ColorEntry[] = [];
-	let colorThreshold: number = 30;
+	let colorThreshold: number = 75;
 	let newColorHex: string = '#000000';
 	let cropper: ImageCropper | null = null;
 
@@ -127,7 +128,7 @@
 		const cellEntries = cellColors.map((hex: string, i: number) => ({
 			hex,
 			char: String.fromCharCode(65 + (colors.length + i)),
-			textColor: '#ffffff'
+			textColor: getContrastTextColor(hex)
 		}));
 		const deduped = dedupeColorsWithThreshold(cellEntries, colorThreshold);
 		const merged = dedupeColorsWithThreshold([...colors, ...deduped], colorThreshold);
@@ -386,7 +387,7 @@
 										const newColor = normalizeHex(e.currentTarget.value);
 										if (newColor) {
 											const next = [...colors];
-											next[idx] = { ...c, hex: newColor };
+											next[idx] = { ...c, hex: newColor, textColor: getContrastTextColor(newColor) };
 											setColors(next);
 										}
 									}}
@@ -420,7 +421,7 @@
 										const newColor = normalizeHex(e.currentTarget.value);
 										if (newColor) {
 											const next = [...colors];
-											next[idx] = { ...c, hex: newColor };
+											next[idx] = { ...c, hex: newColor, textColor: getContrastTextColor(newColor) };
 											setColors(next);
 										}
 									}}

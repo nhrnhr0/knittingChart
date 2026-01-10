@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { colorDistance, rgbToHex, hexToRgb } from './colorUtils';
+import { colorDistance, rgbToHex, hexToRgb, getLuminance, getContrastTextColor } from './colorUtils';
 
 describe('colorUtils', () => {
 	describe('rgbToHex', () => {
@@ -60,6 +60,56 @@ describe('colorUtils', () => {
 			const redToOrange = colorDistance('#ff0000', '#ff8000');
 			const redToBlue = colorDistance('#ff0000', '#0000ff');
 			expect(redToOrange).toBeLessThan(redToBlue);
+		});
+	});
+
+	describe('getLuminance', () => {
+		it('returns 0 for black', () => {
+			expect(getLuminance('#000000')).toBe(0);
+		});
+
+		it('returns 1 for white', () => {
+			expect(getLuminance('#ffffff')).toBeCloseTo(1, 5);
+		});
+
+		it('returns intermediate values for gray', () => {
+			const gray = getLuminance('#808080');
+			expect(gray).toBeGreaterThan(0);
+			expect(gray).toBeLessThan(1);
+		});
+
+		it('returns 0 for invalid hex', () => {
+			expect(getLuminance('invalid')).toBe(0);
+		});
+	});
+
+	describe('getContrastTextColor', () => {
+		it('returns black text for white background', () => {
+			expect(getContrastTextColor('#ffffff')).toBe('#000000');
+		});
+
+		it('returns white text for black background', () => {
+			expect(getContrastTextColor('#000000')).toBe('#ffffff');
+		});
+
+		it('returns white text for dark colors', () => {
+			expect(getContrastTextColor('#006064')).toBe('#ffffff'); // teal
+			expect(getContrastTextColor('#1a1a1a')).toBe('#ffffff'); // dark gray
+			expect(getContrastTextColor('#0000ff')).toBe('#ffffff'); // blue
+			expect(getContrastTextColor('#800000')).toBe('#ffffff'); // maroon
+		});
+
+		it('returns black text for light colors', () => {
+			expect(getContrastTextColor('#ffff00')).toBe('#000000'); // yellow
+			expect(getContrastTextColor('#00ff00')).toBe('#000000'); // lime
+			expect(getContrastTextColor('#e0e0e0')).toBe('#000000'); // light gray
+			expect(getContrastTextColor('#ffc0cb')).toBe('#000000'); // pink
+		});
+
+		it('handles mid-tones appropriately', () => {
+			// These should return one or the other, just verify they work
+			const result = getContrastTextColor('#808080');
+			expect(['#000000', '#ffffff']).toContain(result);
 		});
 	});
 });
