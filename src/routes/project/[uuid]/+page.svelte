@@ -3,7 +3,8 @@
 	import { goto } from '$app/navigation';
 	import { projects } from '$lib/stores';
 	import type { Project, ColorEntry } from '$lib/stores';
-	import ImageCropper, { type Point } from '$lib/components/ImageCropper.svelte';
+	import type { Point } from '$lib';
+	import ImageCropper from '$lib/components/ImageCropper.svelte';
 
 	let project: Project | undefined;
 	let projectName: string = '';
