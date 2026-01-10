@@ -123,17 +123,6 @@ export function drawColorLabels(config: DrawConfig): void {
 			ctx.arc(cx, cy, circleRadius, 0, Math.PI * 2);
 			ctx.fill();
 
-			// If corrected, draw a dashed border
-			if (isCorrected) {
-				ctx.strokeStyle = '#2563eb';
-				ctx.lineWidth = 2;
-				ctx.setLineDash([4, 4]);
-				ctx.beginPath();
-				ctx.arc(cx, cy, circleRadius + 2, 0, Math.PI * 2);
-				ctx.stroke();
-				ctx.setLineDash([]);
-			}
-
 			// Draw label text
 			ctx.fillStyle = label.textColor ?? '#ffffff';
 			ctx.fillText(label.char, cx, cy);

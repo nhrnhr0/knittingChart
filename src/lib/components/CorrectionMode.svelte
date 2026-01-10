@@ -7,6 +7,7 @@
 	$: colors = project.colors || [];
 	$: correctionMode = project.correctionModeActive || false;
 	$: selectedLetter = project.selectedLetter || (colors[0]?.char ?? '');
+	$: brushSize = project.brushSize ?? 1;
 	$: undoStack = project.__undoStack || [];
 	$: redoStack = project.__redoStack || [];
 	$: canUndo = undoStack.length > 0;
@@ -18,6 +19,10 @@
 
 	function selectLetter(letter: string) {
 		projects.setCorrectionLetter(project.uuid, letter);
+	}
+
+	function setBrush(size: number) {
+		projects.setBrushSize(project.uuid, size);
 	}
 
 	function undo() {
@@ -51,6 +56,23 @@
 	</div>
 
 	{#if correctionMode}
+		<!-- Brush Size Selector -->
+		<div class="space-y-2">
+			<div class="flex items-center gap-3">
+				<label for="brush-size" class="text-sm font-semibold text-gray-700">Brush Size:</label>
+				<input
+					id="brush-size"
+					type="range"
+					min="1"
+					max="5"
+					value={brushSize}
+					on:change={(e) => setBrush(parseInt(e.currentTarget.value))}
+					class="flex-1"
+				/>
+				<span class="text-sm font-bold bg-blue-100 px-3 py-1 rounded">{brushSize}×{brushSize}</span>
+			</div>
+		</div>
+
 		<!-- Letter Selector -->
 		<div class="space-y-2">
 			<div class="text-sm font-semibold text-gray-700">Select Letter to Paint:</div>
@@ -74,7 +96,7 @@
 
 		<!-- Instructions -->
 		<p class="text-sm text-gray-600 bg-blue-50 p-2 rounded">
-			💡 Click on cells in the grid to paint them with <strong>{selectedLetter}</strong>
+			💡 Click on cells to paint with <strong>{selectedLetter}</strong> (brush: {brushSize}×{brushSize})
 		</p>
 
 		<!-- Undo/Redo/Clear Controls -->

@@ -32,6 +32,8 @@
 		highlightDirection?: 'LTR' | 'RTL';
 		highlightColor?: string;
 		correctedLetters?: Record<number, string>;
+		brushSize?: number;
+		correctionModeActive?: boolean;
 	}>();
 
 	let {
@@ -66,6 +68,10 @@
 	let imgCanvas: HTMLCanvasElement | null = null;
 	let imgCtx: CanvasRenderingContext2D | null = null;
 	let draggingIndex: number | null = null;
+	let mousePos = $state<{ x: number; y: number } | null>(null);
+	let brushSize = $state(props.brushSize ?? 1);
+	let isPainting = $state(false);
+	let paintedThisStroke = $state<Set<number>>(new Set());
 
 	function setCanvasSize(w: number, h: number) {
 		const dpr = window.devicePixelRatio || 1;
@@ -186,6 +192,32 @@
 
 		drawQuadOutline(config);
 		drawHandles(config);
+
+		// Draw brush preview only when correction mode is active
+		if (props.correctionModeActive && mousePos && props.brushSize) {
+			drawBrushPreview(ctx, mousePos.x, mousePos.y, props.brushSize);
+		}
+	}
+
+	function drawBrushPreview(ctx: CanvasRenderingContext2D, x: number, y: number, brushSize: number) {
+		const radius = (brushSize * width) / (2 * colsLocal);
+		ctx.strokeStyle = 'rgba(59, 130, 246, 0.7)';
+		ctx.lineWidth = 2;
+		ctx.setLineDash([5, 5]);
+		ctx.beginPath();
+		ctx.arc(x, y, radius, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.setLineDash([]);
+
+		// Draw crosshair
+		ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+		ctx.lineWidth = 1;
+		ctx.beginPath();
+		ctx.moveTo(x - 8, y);
+		ctx.lineTo(x + 8, y);
+		ctx.moveTo(x, y - 8);
+		ctx.lineTo(x, y + 8);
+		ctx.stroke();
 	}
 
 	function handleCanvasClick(e: MouseEvent) {
@@ -193,10 +225,15 @@
 		const rel = toRelative(e.clientX, e.clientY);
 		
 		// Check if click is on a cell (if in correction mode)
-		if (editable && rowsLocal > 0 && colsLocal > 0 && pointsLocal && pointsLocal.length === 4) {
+		if (props.correctionModeActive && editable && rowsLocal > 0 && colsLocal > 0 && pointsLocal && pointsLocal.length === 4) {
 			const cellInfo = getCellAtPoint(rel, pointsLocal);
 			if (cellInfo) {
-				dispatch('cellClick', cellInfo);
+				// Paint with brush - multiple cells in a radius
+				const brush = props.brushSize ?? 1;
+				const cellsToFill = getAffectedCells(cellInfo.row, cellInfo.col, brush, rowsLocal, colsLocal);
+				for (const idx of cellsToFill) {
+					dispatch('cellClick', { row: 0, col: 0, cellIndex: idx });
+				}
 				return;
 			}
 		}
@@ -209,6 +246,19 @@
 		pointsLocal = current;
 		dispatch('change', { points: current });
 		draw();
+	}
+
+	function getAffectedCells(row: number, col: number, brushSize: number, totalRows: number, totalCols: number): number[] {
+		const cells: number[] = [];
+		const radius = Math.floor(brushSize / 2);
+		
+		for (let r = Math.max(0, row - radius); r <= Math.min(totalRows - 1, row + radius); r++) {
+			for (let c = Math.max(0, col - radius); c <= Math.min(totalCols - 1, col + radius); c++) {
+				cells.push(r * totalCols + c);
+			}
+		}
+		
+		return cells;
 	}
 
 	function getCellAtPoint(point: Point, quadPoints: Point[]) {
@@ -268,6 +318,17 @@
 		const rect = canvas.getBoundingClientRect();
 		const cx = ((e.clientX - rect.left) / rect.width) * width;
 		const cy = ((e.clientY - rect.top) / rect.height) * height;
+
+		// If in correction mode, start painting immediately
+		if (props.correctionModeActive && rowsLocal > 0 && colsLocal > 0 && pointsLocal && pointsLocal.length === 4) {
+			isPainting = true;
+			paintedThisStroke.clear();
+			paintAtPointer(e.clientX, e.clientY);
+			(canvas as HTMLElement).setPointerCapture(e.pointerId);
+			return;
+		}
+
+		// Otherwise, allow dragging crop points
 		for (let i = 0; i < pts.length; i++) {
 			const px = pts[i].x * width;
 			const py = pts[i].y * height;
@@ -280,6 +341,19 @@
 	}
 
 	function onPointerMove(e: PointerEvent) {
+		// Track mouse position for brush preview
+		const rect = canvas.getBoundingClientRect();
+		mousePos = {
+			x: e.clientX - rect.left,
+			y: e.clientY - rect.top
+		};
+
+		// If painting, continue painting on move
+		if (isPainting && props.correctionModeActive) {
+			paintAtPointer(e.clientX, e.clientY);
+			return;
+		}
+
 		if (draggingIndex === null) return;
 		const rel = toRelative(e.clientX, e.clientY);
 		const current = pointsLocal ? [...pointsLocal] : [];
@@ -290,9 +364,28 @@
 	}
 
 	function onPointerUp(e: PointerEvent) {
-		if (draggingIndex === null) return;
 		(canvas as HTMLElement).releasePointerCapture(e.pointerId);
-		draggingIndex = null;
+		// End painting or dragging
+		isPainting = false;
+		paintedThisStroke.clear();
+		if (draggingIndex !== null) {
+			draggingIndex = null;
+		}
+	}
+
+	function paintAtPointer(clientX: number, clientY: number) {
+		if (!(editable && rowsLocal > 0 && colsLocal > 0 && pointsLocal && pointsLocal.length === 4)) return;
+		const rel = toRelative(clientX, clientY);
+		const cellInfo = getCellAtPoint(rel, pointsLocal);
+		if (!cellInfo) return;
+		const brush = props.brushSize ?? 1;
+		const cellsToFill = getAffectedCells(cellInfo.row, cellInfo.col, brush, rowsLocal, colsLocal);
+		for (const idx of cellsToFill) {
+			if (!paintedThisStroke.has(idx)) {
+				paintedThisStroke.add(idx);
+				dispatch('cellClick', { row: 0, col: 0, cellIndex: idx });
+			}
+		}
 	}
 
 	onMount(() => {
@@ -334,6 +427,11 @@
 		props.highlightColor;
 		draw();
 	});
+
+	$effect(() => {
+		brushSize = props.brushSize ?? 1;
+		draw();
+	});
 </script>
 
 <div bind:this={container} class="relative w-full select-none">
@@ -343,7 +441,7 @@
 		onpointerdown={onPointerDown}
 		onpointermove={onPointerMove}
 		onpointerup={onPointerUp}
-		onpointerleave={onPointerUp}
+		onpointerleave={() => { mousePos = null; draggingIndex = null; isPainting = false; paintedThisStroke.clear(); }}
 		class="block w-full"
 	></canvas>
 </div>

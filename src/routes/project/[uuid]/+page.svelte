@@ -126,11 +126,13 @@
 				<ImageCropper bind:this={cropper} src={project.image} points={project.cropPoints}
 					rows={rows} cols={cols} gridColor={project.gridColor ?? '#22c55e'}
 					gridThickness={project.gridThickness ?? 2} colorLabels={colors}
-					highlightRow={workingState.isActive ? currentGridRow : undefined}
-				highlightCol={workingState.isActive ? highlightGridCol : undefined}
-				highlightDirection={workingState.isActive ? currentDirection : undefined}
+					highlightRow={workingState.isActive && !project?.correctionModeActive ? currentGridRow : undefined}
+				highlightCol={workingState.isActive && !project?.correctionModeActive ? highlightGridCol : undefined}
+				highlightDirection={workingState.isActive && !project?.correctionModeActive ? currentDirection : undefined}
 				highlightColor={workingState.highlightColor}
 				correctedLetters={project?.correctedLetters}
+				brushSize={project?.brushSize}
+				correctionModeActive={project?.correctionModeActive}
 				editable={!workingState.isActive || project?.correctionModeActive}
 				on:change={handleCropChange}
 				on:cellClick={handleCellClick} />

@@ -42,6 +42,7 @@ export interface Project {
 	correctedLetters?: Record<number, string>; // cell corrections, independent of mode
 	correctionModeActive?: boolean; // true when in cell correction/painting mode
 	selectedLetter?: string; // currently selected letter for painting
+	brushSize?: number; // brush radius in cells (1-5)
 	__undoStack?: Array<Record<number, string>>; // internal undo stack
 	__redoStack?: Array<Record<number, string>>; // internal redo stack
 }
@@ -69,6 +70,7 @@ function createProjectsStore(): Writable<Project[]> & {
 	clearCorrections: (uuid: string) => void;
 	toggleCorrectionMode: (uuid: string) => void;
 	setCorrectionLetter: (uuid: string, letter: string) => void;
+	setBrushSize: (uuid: string, size: number) => void;
 } {
 	// Load initial data from localStorage
 	let initialData: Project[] = [];
@@ -259,6 +261,15 @@ function createProjectsStore(): Writable<Project[]> & {
 				projects.map((p) =>
 					p.uuid === uuid
 						? { ...p, selectedLetter: letter }
+						: p
+				)
+			);
+		},
+		setBrushSize(uuid: string, size: number) {
+			update((projects) =>
+				projects.map((p) =>
+					p.uuid === uuid
+						? { ...p, brushSize: Math.max(1, Math.min(5, size)) }
 						: p
 				)
 			);
