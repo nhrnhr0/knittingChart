@@ -39,13 +39,28 @@
 			{#each $projects as project (project.uuid)}
 				<a
 					href={`/project/${project.uuid}`}
-					class="block p-4 bg-white border border-gray-200 rounded-lg hover:shadow-lg transition"
+					class="block bg-white border border-gray-200 rounded-lg hover:shadow-lg transition overflow-hidden"
 				>
-					<h2 class="text-xl font-semibold mb-2">{project.name}</h2>
-					<p class="text-gray-500 text-sm">ID: {project.uuid}</p>
-					<p class="text-gray-400 text-xs mt-2">
-						{new Date(project.createdAt).toLocaleDateString()}
-					</p>
+					{#if project.image}
+						<div class="w-full h-32 bg-gray-100">
+							<img
+								src={project.image}
+								alt={project.name}
+								class="w-full h-full object-cover"
+							/>
+						</div>
+					{:else}
+						<div class="w-full h-32 bg-gray-100 flex items-center justify-center">
+							<span class="text-gray-400 text-sm">No image</span>
+						</div>
+					{/if}
+					<div class="p-4">
+						<h2 class="text-xl font-semibold mb-2">{project.name}</h2>
+						<p class="text-gray-500 text-sm">ID: {project.uuid}</p>
+						<p class="text-gray-400 text-xs mt-2">
+							{new Date(project.createdAt).toLocaleDateString()}
+						</p>
+					</div>
 				</a>
 			{/each}
 		</div>

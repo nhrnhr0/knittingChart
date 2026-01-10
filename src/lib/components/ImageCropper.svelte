@@ -151,7 +151,9 @@
 			gridColor: gridColorLocal,
 			gridThickness: thickness,
 			colorLabels: props.colorLabels ?? [],
-			maxPoints
+			maxPoints,
+			imgCtx,
+			imgCanvas
 		};
 
 		if (pts.length === 4) {
@@ -209,14 +211,14 @@
 	}
 
 	onMount(() => {
-		loadImage(src);
+		loadImage(props.src);
 		const ro = new ResizeObserver(() => updateSize());
 		ro.observe(container);
 		return () => ro.disconnect();
 	});
 
 	$effect(() => {
-		loadImage(src);
+		loadImage(props.src);
 	});
 
 	$effect(() => {

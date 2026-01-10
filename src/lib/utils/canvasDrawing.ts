@@ -1,5 +1,6 @@
 import type { Point } from './geometryUtils';
-import { lerp } from './geometryUtils';
+import { lerp, blend } from './geometryUtils';
+import { colorDistance, rgbToHex } from './colorUtils';
 
 export type ColorLabel = { hex: string; char: string; textColor?: string };
 
@@ -14,6 +15,8 @@ export interface DrawConfig {
 	gridThickness: number;
 	colorLabels: ColorLabel[];
 	maxPoints: number;
+	imgCtx?: CanvasRenderingContext2D | null;
+	imgCanvas?: HTMLCanvasElement | null;
 }
 
 export function drawGrid(config: DrawConfig): void {
@@ -56,7 +59,7 @@ export function drawGrid(config: DrawConfig): void {
 }
 
 export function drawColorLabels(config: DrawConfig): void {
-	const { ctx, width, height, points, rows, cols, colorLabels } = config;
+	const { ctx, width, height, points, rows, cols, colorLabels, imgCtx, imgCanvas } = config;
 
 	if (!colorLabels || colorLabels.length === 0 || points.length !== 4) return;
 
@@ -75,19 +78,36 @@ export function drawColorLabels(config: DrawConfig): void {
 	ctx.textAlign = 'center';
 	ctx.textBaseline = 'middle';
 
+	const p00 = points[0];
+	const p10 = points[1];
+	const p01 = points[3];
+	const p11 = points[2];
+
 	for (let row = 0; row < r; row++) {
 		for (let col = 0; col < c; col++) {
-			const cellIdx = row * c + col;
-			if (cellIdx >= colorLabels.length) break;
-
-			const label = colorLabels[cellIdx];
 			const u = (col + 0.5) / c;
 			const v = (row + 0.5) / r;
-			const pt = lerp(points[0], points[3], v);
-			const pt2 = lerp(points[1], points[2], v);
-			const centerPt = lerp(pt, pt2, u);
-			const cx = centerPt.x * width;
-			const cy = centerPt.y * height;
+
+			// Use bilinear interpolation for cell center
+			const cellCenter = blend(u, v, p00, p10, p01, p11);
+			const cx = cellCenter.x * width;
+			const cy = cellCenter.y * height;
+
+			// Find the closest color label based on actual cell color
+			let label: ColorLabel | null = null;
+
+			if (imgCtx && imgCanvas) {
+				// Sample the color from the image at this cell position
+				const imgX = cellCenter.x * imgCanvas.width;
+				const imgY = cellCenter.y * imgCanvas.height;
+				const cellHex = sampleColorAt(imgCtx, imgCanvas, imgX, imgY);
+
+				if (cellHex) {
+					label = findClosestLabel(cellHex, colorLabels);
+				}
+			}
+
+			if (!label) continue;
 
 			// Draw background circle
 			ctx.fillStyle = label.hex;
@@ -100,6 +120,52 @@ export function drawColorLabels(config: DrawConfig): void {
 			ctx.fillText(label.char, cx, cy);
 		}
 	}
+}
+
+function sampleColorAt(
+	imgCtx: CanvasRenderingContext2D,
+	imgCanvas: HTMLCanvasElement,
+	x: number,
+	y: number
+): string | null {
+	const size = 3;
+	const half = Math.floor(size / 2);
+	const sx = Math.min(Math.max(0, Math.round(x) - half), imgCanvas.width - 1);
+	const sy = Math.min(Math.max(0, Math.round(y) - half), imgCanvas.height - 1);
+	const w = Math.min(size, imgCanvas.width - sx);
+	const h = Math.min(size, imgCanvas.height - sy);
+	const data = imgCtx.getImageData(sx, sy, w, h).data;
+
+	let r = 0,
+		g = 0,
+		b = 0,
+		count = 0;
+	for (let i = 0; i < data.length; i += 4) {
+		r += data[i];
+		g += data[i + 1];
+		b += data[i + 2];
+		count++;
+	}
+	if (count === 0) return null;
+
+	return rgbToHex(Math.round(r / count), Math.round(g / count), Math.round(b / count));
+}
+
+function findClosestLabel(cellHex: string, colorLabels: ColorLabel[]): ColorLabel | null {
+	if (colorLabels.length === 0) return null;
+
+	let closest = colorLabels[0];
+	let minDist = colorDistance(cellHex, closest.hex);
+
+	for (let i = 1; i < colorLabels.length; i++) {
+		const dist = colorDistance(cellHex, colorLabels[i].hex);
+		if (dist < minDist) {
+			minDist = dist;
+			closest = colorLabels[i];
+		}
+	}
+
+	return closest;
 }
 
 export function drawQuadOutline(config: DrawConfig): void {
