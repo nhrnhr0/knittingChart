@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
+	import { base } from '$app/paths';
 	import { projects } from '$lib/stores';
 	import type { Project, ColorEntry, WorkingState } from '$lib/stores';
 	import type { Point } from '$lib';
@@ -110,7 +111,7 @@
 	function deleteProject() {
 		if (project && confirm(`Delete "${project.name}"?`)) {
 			projects.deleteProject(project.uuid);
-			goto('/');
+			goto(`${base}/`);
 		}
 	}
 </script>
@@ -118,7 +119,7 @@
 {#if project}
 	<div class="container mx-auto p-6 max-w-2xl">
 		<div class="mb-6 flex items-center justify-between">
-			<button onclick={() => goto('/')} class="text-blue-600 hover:text-blue-800 font-semibold">← Back</button>
+			<button onclick={() => goto(`${base}/`)} class="text-blue-600 hover:text-blue-800 font-semibold">← Back</button>
 			<ModeToggle isWorking={workingState.isActive} onToggle={handleModeToggle} />
 		</div>
 		<div class="bg-white rounded-lg shadow p-8">
@@ -182,6 +183,6 @@
 {:else}
 	<div class="container mx-auto p-6 text-center">
 		<p class="text-gray-500 text-lg mb-4">Project not found</p>
-		<button onclick={() => goto('/')} class="text-blue-600 hover:text-blue-800 font-semibold">Back</button>
+		<button onclick={() => goto(`${base}/`)} class="text-blue-600 hover:text-blue-800 font-semibold">Back</button>
 	</div>
 {/if}
