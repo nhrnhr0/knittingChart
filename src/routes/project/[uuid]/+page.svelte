@@ -6,7 +6,6 @@
 	import type { Project, ColorEntry, WorkingState } from '$lib/stores';
 	import type { Point } from '$lib';
 	import ImageCropper from '$lib/components/ImageCropper.svelte';
-	import ModeToggle from '$lib/components/ModeToggle.svelte';
 	import GridSettings from '$lib/components/GridSettings.svelte';
 	import ColorPaletteEditor from '$lib/components/ColorPaletteEditor.svelte';
 	import WorkingSettings from '$lib/components/WorkingSettings.svelte';
@@ -26,14 +25,6 @@
 
 	function updateWorkingState(partial: Partial<WorkingState>) {
 		if (project) projects.updateProjectWorkingState(project.uuid, partial);
-	}
-
-	function handleModeToggle(isWorking: boolean) {
-		if (isWorking) {
-			goto(`${base}/project/${uuid}/work`);
-		} else {
-			updateWorkingState({ isActive: false });
-		}
 	}
 
 	function handleGridChange(r: number, c: number, color: string, thickness: number) {
@@ -105,7 +96,12 @@
 	<div class="container mx-auto p-6 max-w-2xl">
 		<div class="mb-6 flex items-center justify-between">
 			<button onclick={() => goto(`${base}/`)} class="text-blue-600 hover:text-blue-800 font-semibold">← Back</button>
-			<ModeToggle isWorking={workingState.isActive} onToggle={handleModeToggle} />
+			<button 
+				onclick={() => goto(`${base}/project/${uuid}/work`)}
+				class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-lg flex items-center gap-2"
+			>
+				🧶 Start Working
+			</button>
 		</div>
 		<div class="bg-white rounded-lg shadow p-8">
 			{#if project.image}
