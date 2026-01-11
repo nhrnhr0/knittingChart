@@ -20,6 +20,7 @@
 		src: string;
 		points: Point[] | undefined;
 		editable?: boolean;
+		allowPan?: boolean;
 		maxPoints?: number;
 		showOverlay?: boolean;
 		rows?: number;
@@ -434,28 +435,30 @@
 	}
 
 	function onPointerDown(e: PointerEvent) {
-		if (!editable) return;
 		const pts = pointsLocal ?? [];
 		const rect = canvas.getBoundingClientRect();
 		const cx = ((e.clientX - rect.left) / rect.width) * width;
 		const cy = ((e.clientY - rect.top) / rect.height) * height;
+
+		// Check if user is trying to pan (spacebar + drag, middle mouse button, or allowPan mode)
+		if ((isSpacePressed || e.button === 1 || props.allowPan) && !props.correctionModeActive) {
+			isPanning = true;
+			panStartX = e.clientX;
+			panStartY = e.clientY;
+			panStartPanX = panX;
+			panStartPanY = panY;
+			(canvas as HTMLElement).setPointerCapture(e.pointerId);
+			return;
+		}
+
+		// All other interactions require editable mode
+		if (!editable) return;
 
 		// If in correction mode, start painting immediately
 		if (props.correctionModeActive && rowsLocal > 0 && colsLocal > 0 && pointsLocal && pointsLocal.length === 4) {
 			isPainting = true;
 			paintedThisStroke.clear();
 			paintAtPointer(e.clientX, e.clientY);
-			(canvas as HTMLElement).setPointerCapture(e.pointerId);
-			return;
-		}
-
-		// Check if user is trying to pan (spacebar + drag or middle mouse button when zoomed)
-		if ((isSpacePressed || e.button === 1) && zoomLevel > MIN_ZOOM) {
-			isPanning = true;
-			panStartX = e.clientX;
-			panStartY = e.clientY;
-			panStartPanX = panX;
-			panStartPanY = panY;
 			(canvas as HTMLElement).setPointerCapture(e.pointerId);
 			return;
 		}
@@ -488,7 +491,7 @@
 		}
 
 		// If panning, update pan position
-		if (isPanning && zoomLevel > MIN_ZOOM) {
+		if (isPanning) {
 			const deltaX = (e.clientX - panStartX) / rect.width;
 			const deltaY = (e.clientY - panStartY) / rect.height;
 			panX = panStartPanX + deltaX;
@@ -599,15 +602,15 @@
 		ontouchmove={handleTouchMove}
 		ontouchend={handleTouchEnd}
 		onwheel={handleWheel}
-		class="block w-full cursor-grab active:cursor-grabbing"
+		class="block w-full {props.allowPan ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'}"
 		style="touch-action: none;"
 	></canvas>
-	{#if zoomLevel > MIN_ZOOM && !editable}
+	{#if (zoomLevel > MIN_ZOOM || panX !== 0 || panY !== 0) && props.allowPan}
 		<button
 			onclick={resetZoom}
-			class="absolute bottom-2 left-2 bg-blue-500 hover:bg-blue-600 text-white px-2 py-1 rounded text-xs z-10"
-			aria-label="Reset zoom"
-			title="Hold Space + Drag to pan, Scroll to zoom"
+			class="absolute bottom-2 right-2 bg-blue-500 hover:bg-blue-600 text-white px-3 py-1.5 rounded-lg text-xs z-10 shadow-lg"
+			aria-label="Reset view"
+			title="Reset zoom and pan"
 		>
 			↺ Reset
 		</button>

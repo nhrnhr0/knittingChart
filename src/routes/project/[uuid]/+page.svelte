@@ -10,13 +10,11 @@
 	import GridSettings from '$lib/components/GridSettings.svelte';
 	import ColorPaletteEditor from '$lib/components/ColorPaletteEditor.svelte';
 	import WorkingSettings from '$lib/components/WorkingSettings.svelte';
-	import WorkingPanel from '$lib/components/WorkingPanel.svelte';
 	import CorrectionMode from '$lib/components/CorrectionMode.svelte';
 	import { getContrastTextColor } from '$lib/utils/colorUtils';
-	import { getStitchType, getRowDirection, getGridRowFromWorking, getDisplayRowNumber, getRowRLE, getDefaultWorkingState } from '$lib/utils/workingUtils';
+	import { getDefaultWorkingState } from '$lib/utils/workingUtils';
 
 	let cropper = $state<ImageCropper | null>(null);
-	let cellColors = $state<string[]>([]);
 	let colorThreshold = $state(75);
 
 	let uuid = $derived($page.params.uuid);
@@ -25,31 +23,18 @@
 	let rows = $derived(project?.rows ?? 0);
 	let cols = $derived(project?.cols ?? 0);
 	let colors = $derived(project?.colors ?? []);
-	let currentStitchType = $derived(getStitchType(workingState.currentRow, workingState.startStitch));
-	let currentDirection = $derived(getRowDirection(currentStitchType, workingState.knitDirection, workingState.perlDirection));
-	let currentGridRow = $derived(getGridRowFromWorking(workingState.currentRow, workingState.startFromBottom, rows));
-	let displayRowNumber = $derived(getDisplayRowNumber(workingState.currentRow));
-	let currentRowRLE = $derived(getRowRLE(cellColors, currentGridRow, cols, colors, currentDirection, project?.correctedLetters));
-	let highlightGridCol = $derived(currentDirection === 'RTL' ? cols - 1 - workingState.currentCol : workingState.currentCol);
-	let isOddRow = $derived(displayRowNumber % 2 === 1);
-
-	async function updateCellColors() {
-		if (!cropper || rows <= 0 || cols <= 0) { cellColors = []; return; }
-		try { cellColors = await cropper.getCellColors({ rows, cols, sampleSize: 3 }); } catch { cellColors = []; }
-	}
 
 	function updateWorkingState(partial: Partial<WorkingState>) {
 		if (project) projects.updateProjectWorkingState(project.uuid, partial);
 	}
 
 	function handleModeToggle(isWorking: boolean) {
-		updateWorkingState({ isActive: isWorking });
-		if (isWorking) updateCellColors();
+		if (isWorking) {
+			goto(`${base}/project/${uuid}/work`);
+		} else {
+			updateWorkingState({ isActive: false });
+		}
 	}
-
-	$effect(() => {
-		if (workingState.isActive && cropper) updateCellColors();
-	});
 
 	function handleGridChange(r: number, c: number, color: string, thickness: number) {
 		if (project) projects.updateProjectGrid(project.uuid, r, c, color, thickness);
@@ -127,14 +112,10 @@
 				<ImageCropper bind:this={cropper} src={project.image} points={project.cropPoints}
 					rows={rows} cols={cols} gridColor={project.gridColor ?? '#22c55e'}
 					gridThickness={project.gridThickness ?? 2} colorLabels={colors}
-					highlightRow={workingState.isActive && !project?.correctionModeActive ? currentGridRow : undefined}
-				highlightCol={workingState.isActive && !project?.correctionModeActive ? highlightGridCol : undefined}
-				highlightDirection={workingState.isActive && !project?.correctionModeActive ? currentDirection : undefined}
-				highlightColor={workingState.highlightColor}
-				correctedLetters={project?.correctedLetters}
-				brushSize={project?.brushSize}
-				correctionModeActive={project?.correctionModeActive}
-				editable={!workingState.isActive || project?.correctionModeActive}
+					correctedLetters={project?.correctedLetters}
+					brushSize={project?.brushSize}
+					correctionModeActive={project?.correctionModeActive}
+					editable={true}
 				on:change={handleCropChange}
 				on:cellClick={handleCellClick} />
 			{/if}
@@ -156,29 +137,6 @@
 				</div>
 			{/if}
 		</div>
-		{#if workingState.isActive}
-
-			<div class="container mx-auto px-6 max-w-2xl">
-				<WorkingPanel {displayRowNumber} totalRows={rows} currentCol={workingState.currentCol + 1} {cols} startCol={workingState.startCol} {currentStitchType} {currentDirection} {currentRowRLE}
-					onIncrementRow={() => workingState.currentRow < rows - 1 && updateWorkingState({ currentRow: workingState.currentRow + 1, currentCol: 0 })}
-					onDecrementRow={() => workingState.currentRow > 0 && updateWorkingState({ currentRow: workingState.currentRow - 1, currentCol: 0 })}
-					onIncrementCol={() => {
-						const shouldReverse = isOddRow;
-						const newCol = shouldReverse
-							? (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1))
-							: (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0));
-						updateWorkingState({ currentCol: newCol });
-					}}
-					onDecrementCol={() => {
-						const shouldReverse = isOddRow;
-						const newCol = shouldReverse
-							? (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0))
-							: (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1));
-						updateWorkingState({ currentCol: newCol });
-					}}
-					onGoToFirst={() => updateWorkingState({ currentRow: 0, currentCol: 0 })} onGoToLast={() => updateWorkingState({ currentRow: rows - 1, currentCol: 0 })} />
-			</div>
-		{/if}
 	</div>
 {:else}
 	<div class="container mx-auto p-6 text-center">
