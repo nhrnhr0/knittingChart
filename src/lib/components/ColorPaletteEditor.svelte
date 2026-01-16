@@ -103,7 +103,7 @@
 						</div>
 						<!-- BG Color Picker -->
 						<div class="flex flex-col items-start sm:items-center gap-1 min-w-[80px]">
-							<span class="text-xs font-semibold text-gray-600">BG Color</span>
+							<span class="text-xs font-semibold text-gray-600">Color</span>
 							<input
 								type="color"
 								value={c.hex}
@@ -114,7 +114,7 @@
 									}
 								}}
 								class="w-12 h-10 border border-gray-300 rounded cursor-pointer"
-								title="Background color"
+								title="Color"
 							/>
 						</div>
 						<!-- Text Color Picker -->
@@ -129,22 +129,6 @@
 								}}
 								class="w-12 h-10 border border-gray-300 rounded cursor-pointer"
 								title="Text color"
-							/>
-						</div>
-						<!-- Hex Input -->
-						<div class="flex flex-col gap-1 flex-1 min-w-[120px]">
-							<span class="text-xs font-semibold text-gray-600">Hex</span>
-							<input
-								type="text"
-								value={c.hex}
-								onchange={(e) => {
-									const newColor = normalizeHex(e.currentTarget.value);
-									if (newColor) {
-										updateColor(idx, { hex: newColor, textColor: getContrastTextColor(newColor) });
-									}
-								}}
-								class="px-2 sm:px-3 py-2 border border-gray-300 rounded font-mono text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-								placeholder="#000000"
 							/>
 						</div>
 						<!-- Delete Button -->

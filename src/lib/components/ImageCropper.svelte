@@ -35,6 +35,7 @@
 		correctedLetters?: Record<number, string>;
 		brushSize?: number;
 		correctionModeActive?: boolean;
+		allowDragPoints?: boolean;
 	}>();
 
 	let {
@@ -46,7 +47,8 @@
 		rows = 0,
 		cols = 0,
 		gridColor = '#22c55e',
-		gridThickness = 2
+		gridThickness = 2,
+		allowDragPoints = true // default true for backward compatibility
 	} = props;
 
 	let rowsLocal = $state<number>(rows ?? 0);
@@ -217,9 +219,15 @@
 			drawColorLabels(config);
 		}
 
-		drawQuadOutline(config);
-		drawHandles(config);
+			drawGrid(config);
+			drawColorLabels(config);
 
+
+		drawQuadOutline(config);
+		// Only draw handles if allowDragPoints is true
+		if (allowDragPoints) {
+			drawHandles(config);
+		}
 		// Draw brush preview only when correction mode is active
 		if (props.correctionModeActive && mousePos && props.brushSize) {
 			drawBrushPreview(ctx, mousePos.x, mousePos.y, props.brushSize);
@@ -463,17 +471,19 @@
 			return;
 		}
 
-		// Otherwise, allow dragging crop points - use 44px touch target
-		const touchRadius = 44;
-		for (let i = 0; i < pts.length; i++) {
-			const px = pts[i].x * width;
-			const py = pts[i].y * height;
-			if (distancePx(px, py, cx, cy) <= touchRadius) {
-				draggingIndex = i;
-				(canvas as HTMLElement).setPointerCapture(e.pointerId);
-				break;
-			}
-		}
+		       // Otherwise, allow dragging crop points - use 44px touch target
+		       if (allowDragPoints) {
+			       const touchRadius = 44;
+			       for (let i = 0; i < pts.length; i++) {
+				       const px = pts[i].x * width;
+				       const py = pts[i].y * height;
+				       if (distancePx(px, py, cx, cy) <= touchRadius) {
+					       draggingIndex = i;
+					       (canvas as HTMLElement).setPointerCapture(e.pointerId);
+					       break;
+				       }
+			       }
+		       }
 	}
 
 	function onPointerMove(e: PointerEvent) {

@@ -9,7 +9,7 @@
 	import { getStitchType, getRowDirection, getGridRowFromWorking, getDisplayRowNumber, getRowRLE, getDefaultWorkingState } from '$lib/utils/workingUtils';
 
 	let cropper = $state<ImageCropper | null>(null);
-	let cellColors = $state<string[]>([]);
+	let cellColors: string[] = [];
 
 	let uuid = $derived($page.params.uuid);
 	let project = $derived($projects.find((p) => p.uuid === uuid));
@@ -25,10 +25,6 @@
 	let highlightGridCol = $derived(currentDirection === 'RTL' ? cols - 1 - workingState.currentCol : workingState.currentCol);
 	let isOddRow = $derived(displayRowNumber % 2 === 1);
 
-	async function updateCellColors() {
-		if (!cropper || rows <= 0 || cols <= 0) { cellColors = []; return; }
-		try { cellColors = await cropper.getCellColors({ rows, cols, sampleSize: 3 }); } catch { cellColors = []; }
-	}
 
 	function updateWorkingState(partial: Partial<WorkingState>) {
 		if (project) projects.updateProjectWorkingState(project.uuid, partial);
@@ -39,13 +35,6 @@
 		goto(`${base}/project/${uuid}`);
 	}
 
-	$effect(() => {
-		if (project && cropper) {
-			// Activate work state when entering this route
-			updateWorkingState({ isActive: true });
-			updateCellColors();
-		}
-	});
 
 	// Handle cell clicks for correction mode (if needed in work view)
 	function handleCellClick(e: CustomEvent<{ row: number; col: number; cellIndex: number }>) {
@@ -76,25 +65,26 @@
 			<div class="absolute inset-0 bg-gray-50">
 				{#if project.image}
 					<div class="h-full w-full flex items-center justify-center">
-						<ImageCropper 
-							bind:this={cropper} 
-							src={project.image} 
-							points={project.cropPoints}
-							rows={rows} 
-							cols={cols} 
-							gridColor={project.gridColor ?? '#22c55e'}
-							gridThickness={project.gridThickness ?? 2} 
-							colorLabels={colors}
-							highlightRow={!project?.correctionModeActive ? currentGridRow : undefined}
-							highlightCol={!project?.correctionModeActive ? highlightGridCol : undefined}
-							highlightDirection={!project?.correctionModeActive ? currentDirection : undefined}
-							highlightColor={workingState.highlightColor}
-							correctedLetters={project?.correctedLetters}
-							brushSize={project?.brushSize}
-							correctionModeActive={project?.correctionModeActive}
-							editable={project?.correctionModeActive}
-							allowPan={true}
-							on:cellClick={handleCellClick} />
+						       <ImageCropper 
+							       bind:this={cropper} 
+							       src={project.image} 
+							       points={project.cropPoints}
+							       rows={rows} 
+							       cols={cols} 
+							       gridColor={project.gridColor ?? '#22c55e'}
+							       gridThickness={project.gridThickness ?? 2} 
+							       colorLabels={colors}
+							       highlightRow={!project?.correctionModeActive ? currentGridRow : undefined}
+							       highlightCol={!project?.correctionModeActive ? highlightGridCol : undefined}
+							       highlightDirection={!project?.correctionModeActive ? currentDirection : undefined}
+							       highlightColor={workingState.highlightColor}
+							       correctedLetters={project?.correctedLetters}
+							       brushSize={project?.brushSize}
+							       correctionModeActive={project?.correctionModeActive}
+							       editable={project?.correctionModeActive}
+							       allowPan={true}
+							       allowDragPoints={false}
+							       on:cellClick={handleCellClick} />
 					</div>
 				{:else}
 					<div class="h-full flex items-center justify-center">

@@ -107,8 +107,8 @@
 					editable={true}
 				on:change={handleCropChange}
 				on:cellClick={handleCellClick} />
+				<CorrectionMode {project} />
 			{/if}
-			<CorrectionMode {project} />
 			<div class="mb-6">
 				<label for="project-image" class="block text-sm font-medium text-gray-700 mb-2">Image</label>
 				<input id="project-image" type="file" accept="image/*" onchange={handleImageUpload} class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-blue-50 file:text-blue-700" />
