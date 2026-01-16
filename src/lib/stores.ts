@@ -10,22 +10,7 @@ export interface ColorEntry {
 export type StitchType = 'K' | 'P';
 export type Direction = 'LTR' | 'RTL';
 
-export interface WorkingState {
-	isActive: boolean;
-	currentRow: number; // 0-indexed working row (row 0 = first row you work)
-	currentCol: number; // 0-indexed column
-	startFromBottom: boolean; // true = start from bottom of grid
-	startStitch: StitchType; // which stitch type for first row
-	knitDirection: Direction; // direction for knit rows
-	perlDirection: Direction; // direction for perl rows
-	highlightColor: string; // color for row/col highlight overlay
-	startCol: number; // 0-indexed starting column
-	correctedLetters?: Record<number, string>; // cellIndex -> character override
-	undoStack?: Array<Record<number, string>>; // stack of previous states
-	redoStack?: Array<Record<number, string>>; // stack of undone states
-	correctionMode?: boolean; // true = in cell correction mode
-	selectedLetter?: string; // currently selected letter for painting
-}
+
 
 export interface ViewportState {
 	zoomLevel: number; // 1.0 = 100%, 2.0 = 200%
@@ -44,7 +29,16 @@ export interface Project {
 	gridColor?: string;
 	gridThickness?: number;
 	colors?: ColorEntry[];
-	workingState?: WorkingState;
+	// --- Former WorkingState fields ---
+	currentRow?: number;
+	currentCol?: number;
+	startFromBottom?: boolean;
+	startStitch?: StitchType;
+	knitDirection?: Direction;
+	perlDirection?: Direction;
+	highlightColor?: string;
+	startCol?: number; // Removed stray 'g;'
+	// --- End WorkingState fields ---
 	correctedLetters?: Record<number, string>; // cell corrections, independent of mode
 	correctionModeActive?: boolean; // true when in cell correction/painting mode
 	selectedLetter?: string; // currently selected letter for painting
@@ -62,7 +56,7 @@ function createProjectsStore(): Writable<Project[]> & {
 	updateProject: (uuid: string, name: string) => void;
 	updateProjectImage: (uuid: string, image: string | undefined) => void;
 	updateProjectCrop: (uuid: string, points: { x: number; y: number }[] | undefined) => void;
-	updateProjectWorkingState: (uuid: string, workingState: Partial<WorkingState>) => void;
+	updateProjectFields: (uuid: string, fields: Partial<Project>) => void;
 	updateProjectGrid: (
 		uuid: string,
 		rows: number,
@@ -153,30 +147,13 @@ function createProjectsStore(): Writable<Project[]> & {
 				projects.map((p) => (p.uuid === uuid ? { ...p, colors: [...colors] } : p))
 			);
 		},
-		updateProjectWorkingState(uuid: string, workingState: Partial<WorkingState>) {
+		updateProjectFields(uuid: string, fields: Partial<Project>) {
 			update((projects) =>
 				projects.map((p) =>
 					p.uuid === uuid
 						? {
 							...p,
-							workingState: {
-								isActive: false,
-								currentRow: 0,
-								currentCol: 0,
-								startFromBottom: true,
-								startStitch: 'K' as StitchType,
-								knitDirection: 'RTL' as Direction,
-								perlDirection: 'LTR' as Direction,
-								highlightColor: 'rgba(34, 197, 94, 0.4)',
-								startCol: 0,
-								correctedLetters: {},
-								undoStack: [],
-								redoStack: [],
-								correctionMode: false,
-								selectedLetter: undefined,
-								...p.workingState,
-								...workingState
-							}
+							...fields
 						}
 						: p
 				)

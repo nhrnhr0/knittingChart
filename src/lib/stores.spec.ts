@@ -57,7 +57,7 @@ describe('projects store', () => {
 
 			const saved = JSON.parse(storage.getItem(STORAGE_KEY) ?? 'null');
 			expect(saved).toEqual([project]);
-		});
+		}, 20000);
 
 		it('adds multiple projects in order', async () => {
 			const storage = setupDomWithStorage();

@@ -3,35 +3,34 @@
 	import { goto } from '$app/navigation';
 	import { base } from '$app/paths';
 	import { projects } from '$lib/stores';
-	import type { WorkingState } from '$lib/stores';
 	import ImageCropper from '$lib/components/ImageCropper.svelte';
 	import WorkingPanel from '$lib/components/WorkingPanel.svelte';
-	import { getStitchType, getRowDirection, getGridRowFromWorking, getDisplayRowNumber, getRowRLE, getDefaultWorkingState } from '$lib/utils/workingUtils';
+	import { getStitchType, getRowDirection, getGridRowFromWorking, getDisplayRowNumber, getRowRLE } from '$lib/utils/workingUtils';
 
 	let cropper = $state<ImageCropper | null>(null);
 	let cellColors: string[] = [];
 
 	let uuid = $derived($page.params.uuid);
 	let project = $derived($projects.find((p) => p.uuid === uuid));
-	let workingState = $derived(project?.workingState ?? getDefaultWorkingState());
+	// Use flat project fields instead of workingState
 	let rows = $derived(project?.rows ?? 0);
 	let cols = $derived(project?.cols ?? 0);
 	let colors = $derived(project?.colors ?? []);
-	let currentStitchType = $derived(getStitchType(workingState.currentRow, workingState.startStitch));
-	let currentDirection = $derived(getRowDirection(currentStitchType, workingState.knitDirection, workingState.perlDirection));
-	let currentGridRow = $derived(getGridRowFromWorking(workingState.currentRow, workingState.startFromBottom, rows));
-	let displayRowNumber = $derived(getDisplayRowNumber(workingState.currentRow));
+	let currentStitchType = $derived(getStitchType(project?.currentRow ?? 0, project?.startStitch ?? 'K'));
+	let currentDirection = $derived(getRowDirection(currentStitchType, project?.knitDirection ?? 'RTL', project?.perlDirection ?? 'LTR'));
+	let currentGridRow = $derived(getGridRowFromWorking(project?.currentRow ?? 0, project?.startFromBottom ?? true, rows));
+	let displayRowNumber = $derived(getDisplayRowNumber(project?.currentRow ?? 0));
 	let currentRowRLE = $derived(getRowRLE(cellColors, currentGridRow, cols, colors, currentDirection, project?.correctedLetters));
-	let highlightGridCol = $derived(currentDirection === 'RTL' ? cols - 1 - workingState.currentCol : workingState.currentCol);
+	let highlightGridCol = $derived(currentDirection === 'RTL' ? cols - 1 - (project?.currentCol ?? 0) : (project?.currentCol ?? 0));
 	let isOddRow = $derived(displayRowNumber % 2 === 1);
 
 
-	function updateWorkingState(partial: Partial<WorkingState>) {
-		if (project) projects.updateProjectWorkingState(project.uuid, partial);
+	function updateProjectFields(partial: Partial<Project>) {
+		if (project) projects.updateProjectFields(project.uuid, partial);
 	}
 
 	function handleBack() {
-		updateWorkingState({ isActive: false });
+		updateProjectFields({ isActive: false });
 		goto(`${base}/project/${uuid}`);
 	}
 
@@ -77,7 +76,7 @@
 							       highlightRow={!project?.correctionModeActive ? currentGridRow : undefined}
 							       highlightCol={!project?.correctionModeActive ? highlightGridCol : undefined}
 							       highlightDirection={!project?.correctionModeActive ? currentDirection : undefined}
-							       highlightColor={workingState.highlightColor}
+								highlightColor={project?.highlightColor}
 							       correctedLetters={project?.correctedLetters}
 							       brushSize={project?.brushSize}
 							       correctionModeActive={project?.correctionModeActive}
@@ -98,27 +97,27 @@
 				<WorkingPanel
 						{displayRowNumber} 
 						totalRows={rows} 
-						currentCol={workingState.currentCol + 1} 
+						currentCol={(project?.currentCol ?? 0) + 1} 
 						{cols} 
-						startCol={workingState.startCol} 
+						startCol={project?.startCol ?? 0} 
 						{currentStitchType} 
 						{currentDirection} 
 						{currentRowRLE}
-						onIncrementRow={() => workingState.currentRow < rows - 1 && updateWorkingState({ currentRow: workingState.currentRow + 1, currentCol: 0 })}
-						onDecrementRow={() => workingState.currentRow > 0 && updateWorkingState({ currentRow: workingState.currentRow - 1, currentCol: 0 })}
+						onIncrementRow={() => (project?.currentRow ?? 0) < rows - 1 && updateProjectFields({ currentRow: (project?.currentRow ?? 0) + 1, currentCol: 0 })}
+						onDecrementRow={() => (project?.currentRow ?? 0) > 0 && updateProjectFields({ currentRow: (project?.currentRow ?? 0) - 1, currentCol: 0 })}
 						onIncrementCol={() => {
 							const shouldReverse = isOddRow;
 							const newCol = shouldReverse
-								? (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1))
-								: (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0));
-							updateWorkingState({ currentCol: newCol });
+								? (currentDirection === 'LTR' ? Math.max((project?.currentCol ?? 0) - 1, 0) : Math.min((project?.currentCol ?? 0) + 1, cols - 1))
+								: (currentDirection === 'LTR' ? Math.min((project?.currentCol ?? 0) + 1, cols - 1) : Math.max((project?.currentCol ?? 0) - 1, 0));
+							updateProjectFields({ currentCol: newCol });
 						}}
 						onDecrementCol={() => {
 							const shouldReverse = isOddRow;
 							const newCol = shouldReverse
-								? (currentDirection === 'LTR' ? Math.min(workingState.currentCol + 1, cols - 1) : Math.max(workingState.currentCol - 1, 0))
-								: (currentDirection === 'LTR' ? Math.max(workingState.currentCol - 1, 0) : Math.min(workingState.currentCol + 1, cols - 1));
-							updateWorkingState({ currentCol: newCol });
+								? (currentDirection === 'LTR' ? Math.min((project?.currentCol ?? 0) + 1, cols - 1) : Math.max((project?.currentCol ?? 0) - 1, 0))
+								: (currentDirection === 'LTR' ? Math.max((project?.currentCol ?? 0) - 1, 0) : Math.min((project?.currentCol ?? 0) + 1, cols - 1));
+							updateProjectFields({ currentCol: newCol });
 						}} />
 			</div>
 		</div>
